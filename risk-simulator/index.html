@@ -185,6 +185,104 @@
     margin-top:10px;
     display:none;
   }
+
+  /* ===== Popup peringatan kritis: risiko likuidasi sebelum SL kena ===== */
+  .liq-danger-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.72);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:999;
+    padding:18px;
+    backdrop-filter:blur(1px);
+  }
+  .liq-danger-overlay.show{display:flex;}
+  .liq-danger-box{
+    width:100%;
+    max-width:480px;
+    background:#1a0d0d;
+    border:2px solid #ff3b30;
+    border-radius:16px;
+    padding:20px 18px;
+    box-shadow:0 0 0 4px rgba(255,59,48,0.12), 0 8px 30px rgba(0,0,0,0.5);
+    animation:liqPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes liqPulse{
+    0%,100%{box-shadow:0 0 0 4px rgba(255,59,48,0.12), 0 8px 30px rgba(0,0,0,0.5);}
+    50%{box-shadow:0 0 0 9px rgba(255,59,48,0.22), 0 8px 30px rgba(0,0,0,0.5);}
+  }
+  .liq-danger-title{
+    color:#ff453a;
+    font-weight:800;
+    font-size:16px;
+    letter-spacing:.3px;
+    margin-bottom:10px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .liq-danger-body{
+    color:#ffd9d6;
+    font-size:13.5px;
+    line-height:1.55;
+    margin-bottom:14px;
+  }
+  .liq-danger-body b{color:#fff;}
+  .liq-fix-list{
+    list-style:none;
+    margin:0 0 14px;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .liq-fix-list li{
+    background:rgba(255,59,48,0.08);
+    border:1px solid rgba(255,59,48,0.3);
+    border-radius:9px;
+    padding:9px 11px;
+    font-size:13px;
+    color:#ffe8e6;
+  }
+  .liq-fix-list li .lbl{color:#ff8a85;font-size:11px;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:2px;}
+  .liq-fix-list li b{color:#fff;font-family:var(--mono);}
+  .liq-danger-actions{
+    display:flex;
+    justify-content:flex-end;
+  }
+  .liq-danger-actions button{
+    background:#ff3b30;
+    color:#fff;
+    border:none;
+    border-radius:9px;
+    padding:9px 18px;
+    font-size:13.5px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .liq-danger-actions button:active{background:#d6291f;}
+
+  /* ===== Harga likuidasi: merah menyala, jadi fokus visual utama ===== */
+  .result-box.liq-box{
+    border-color:rgba(255,59,48,0.55);
+    background:linear-gradient(180deg, rgba(255,59,48,0.10), var(--panel2) 65%);
+  }
+  .result-box.liq-box .rlabel{color:#ff8a85;}
+  .result-box.liq-box .rvalue{
+    color:#ff453a;
+    text-shadow:0 0 14px rgba(255,69,58,0.55);
+  }
+  .result-box.liq-box.danger{
+    border-color:#ff3b30;
+    box-shadow:0 0 0 1px rgba(255,59,48,0.4), 0 0 18px rgba(255,59,48,0.35);
+    animation:liqBoxPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes liqBoxPulse{
+    0%,100%{box-shadow:0 0 0 1px rgba(255,59,48,0.4), 0 0 18px rgba(255,59,48,0.35);}
+    50%{box-shadow:0 0 0 1px rgba(255,59,48,0.6), 0 0 28px rgba(255,59,48,0.55);}
+  }
   .err-box{
     background:rgba(239,83,80,0.08);
     border:1px solid rgba(239,83,80,0.35);
@@ -298,26 +396,26 @@
     <h2>Hasil <span id="dirBadge" class="badge long">LONG</span></h2>
 
     <div class="result-box static" style="margin-bottom:10px;">
-      <div class="rlabel">Entry <span class="pin">statis</span></div>
+      <div class="rlabel">Entry</div>
       <div class="rvalue" id="outEntry">—</div>
       <div class="rsub" id="outEntryDetail">dihitung dari TP, SL &amp; target R:R</div>
     </div>
 
     <div class="result-grid">
       <div class="result-box static">
-        <div class="rlabel">Size / Posisi <span class="pin">statis</span></div>
+        <div class="rlabel">Size / Posisi</div>
         <div class="rvalue" id="outSize">—</div>
         <div class="rsub" id="outQty">—</div>
       </div>
-      <div class="result-box static">
-        <div class="rlabel">Harga Likuidasi <span class="pin">statis</span></div>
+      <div class="result-box static liq-box" id="liqBox">
+        <div class="rlabel">⚠ Harga Likuidasi</div>
         <div class="rvalue" id="outLiq">—</div>
         <div class="rsub" id="outLiqDist">—</div>
       </div>
     </div>
 
     <div class="result-box static" style="margin-top:10px;">
-      <div class="rlabel">Risk / Reward <span class="pin">statis</span></div>
+      <div class="rlabel">Risk / Reward</div>
       <div class="rvalue" id="outRR">—</div>
       <div class="rsub" id="outRRDetail">—</div>
     </div>
@@ -354,6 +452,19 @@
   </footer>
 </div>
 
+<div class="liq-danger-overlay" id="liqDangerOverlay">
+  <div class="liq-danger-box">
+    <div class="liq-danger-title">⚠️ PERINGATAN — RISIKO TERLIKUIDASI SEBELUM SL</div>
+    <div class="liq-danger-body">
+      Dengan input saat ini, harga <b>likuidasi</b> Anda akan tersentuh <b>lebih dulu</b> daripada harga <b>Stop Loss</b>. Artinya Anda akan kena <b>force liquidation</b> oleh exchange sebelum SL Anda sempat tereksekusi — kerugian riil bisa jauh lebih besar dari risk yang Anda rencanakan.
+    </div>
+    <ul class="liq-fix-list" id="liqFixList"></ul>
+    <div class="liq-danger-actions">
+      <button type="button" id="liqDangerClose">Saya mengerti</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   const els = {
@@ -383,6 +494,10 @@
     warnBox: document.getElementById('warnBox'),
     errBox: document.getElementById('errBox'),
     formulaBox: document.getElementById('formulaBox'),
+    liqBox: document.getElementById('liqBox'),
+    liqDangerOverlay: document.getElementById('liqDangerOverlay'),
+    liqFixList: document.getElementById('liqFixList'),
+    liqDangerClose: document.getElementById('liqDangerClose'),
   };
 
   const MAX_LEVERAGE = 125;
@@ -497,6 +612,9 @@
       showWarn('Hasil tidak normal untuk LONG (likuidasi harus di bawah entry). Periksa kembali input Anda.');
     }
 
+    // ===== Cek kritis: apakah harga likuidasi akan tersentuh SEBELUM SL? =====
+    checkLiquidationBeforeSL({saldo, risk, tp, sl, rrTarget, mmr, liqfee, direction, liq});
+
     // Formula reference text
     if(direction === 'short'){
       els.formulaBox.textContent =
@@ -586,7 +704,139 @@
     renderMarginLeverage();
   }
 
+  // ===================================================================
+  // Deteksi: apakah harga LIKUIDASI akan tersentuh lebih dulu daripada SL?
+  // Jika ya -> tampilkan popup peringatan dengan saran perbaikan dinamis.
+  //
+  // Basis matematis (cross margin, posisi tunggal):
+  //   entry   = (R*sl + tp) / (R+1)
+  //   slDist  = |entry - sl|
+  //   notional= risk*entry/slDist ; qty = notional/entry
+  //   SHORT -> liq = (saldo+notional) / (qty*(1+mmr+fee))   ; bahaya jika liq <= sl
+  //   LONG  -> liq = (notional-saldo) / (qty*(1-mmr-fee))   ; bahaya jika liq >= sl
+  //
+  // Untuk tiap arah, batas aman (liq == sl) diselesaikan secara aljabar
+  // terhadap saldo, risk, dan R secara terpisah (dua variabel lain tetap).
+  // ===================================================================
+  function checkLiquidationBeforeSL({saldo, risk, tp, sl, rrTarget, mmr, liqfee, direction, liq}){
+    const R = rrTarget;
+    const k = (R + 1) * sl * (mmr + liqfee); // suku gabungan MMR+fee yang sudah diskalakan
+    let isDanger = false;
+
+    if(direction === 'short'){
+      isDanger = liq <= sl;
+    } else {
+      isDanger = liq >= sl;
+    }
+
+    if(!isDanger){
+      hideLiqDanger();
+      els.liqBox.classList.remove('danger');
+      return;
+    }
+
+    els.liqBox.classList.add('danger');
+
+    const fixes = [];
+
+    if(direction === 'short'){
+      // saldo_min: saldo*(sl-tp) harus >= risk*(k + sl - tp)  [denom>0 karena sl>tp]
+      const saldoMin = risk * (k + (sl - tp)) / (sl - tp);
+      if(isFinite(saldoMin) && saldoMin > saldo){
+        fixes.push({label:'Ubah saldo ke minimal', value: fmt(saldoMin, 2) + ' USDT'});
+      }
+
+      // risk_max: risk <= saldo*(sl-tp) / (k + sl - tp)
+      const riskMax = saldo * (sl - tp) / (k + (sl - tp));
+      if(isFinite(riskMax) && riskMax > 0 && riskMax < risk){
+        fixes.push({label:'Atau ubah Risk maksimal', value: fmt(riskMax, 2) + ' USDT'});
+      }
+
+      // R_min: dari liq(R)==sl, solusi rasional. Hanya valid jika menyelamatkan posisi
+      // (karena saat R→∞, liq_short → sl/(1+mmr+fee); bila batas itu sendiri sudah
+      // di sisi bahaya untuk saldo & risk saat ini, TIDAK ADA nilai R yang menyelamatkan,
+      // sehingga saran ini disembunyikan via verifikasi numerik di bawah).
+      const RMinNumer = (-(liqfee*risk*sl) - (mmr*risk*sl) - (risk*sl) + (risk*tp) + (saldo*sl) - (saldo*tp));
+      const RMinDenom = (risk*sl*(liqfee+mmr));
+      const RMin = RMinDenom !== 0 ? RMinNumer / RMinDenom : NaN;
+      if(isFinite(RMin) && RMin > 0 && RMin > R){
+        // verifikasi ulang dengan numerik agar konsisten dgn formula liq aktual
+        const verifyEntry = (RMin*sl+tp)/(RMin+1);
+        const verifySlDist = sl - verifyEntry;
+        const verifyNotional = risk*verifyEntry/verifySlDist;
+        const verifyQty = verifyNotional/verifyEntry;
+        const verifyLiq = (saldo+verifyNotional)/(verifyQty*(1+mmr+liqfee));
+        if(verifyLiq > sl + 1e-9){
+          fixes.push({label:'Atau ubah Target Risk:Reward minimal', value: RMin.toFixed(2)});
+        }
+      }
+    } else {
+      // LONG
+      // saldo_min: agar liq < sl (aman), saldo harus >= batas ini
+      const saldoMin = risk * ((sl - tp) - k) / (sl - tp); // denom (sl-tp) negatif untuk long (tp>sl)
+      if(isFinite(saldoMin) && saldoMin > saldo){
+        fixes.push({label:'Ubah saldo ke minimal', value: fmt(saldoMin, 2) + ' USDT'});
+      }
+
+      const riskMax = saldo * (sl - tp) / ((sl - tp) - k);
+      if(isFinite(riskMax) && riskMax > 0 && riskMax < risk){
+        fixes.push({label:'Atau ubah Risk maksimal', value: fmt(riskMax, 2) + ' USDT'});
+      }
+
+      const RMinNumer = (-(liqfee*risk*sl) - (mmr*risk*sl) + (risk*sl) - (risk*tp) - (saldo*sl) + (saldo*tp));
+      const RMinDenom = (risk*sl*(liqfee+mmr));
+      const RMin = RMinDenom !== 0 ? RMinNumer / RMinDenom : NaN;
+      if(isFinite(RMin) && RMin > 0 && RMin > R){
+        const verifyEntry = (RMin*sl+tp)/(RMin+1);
+        const verifySlDist = verifyEntry - sl;
+        const verifyNotional = risk*verifyEntry/verifySlDist;
+        const verifyQty = verifyNotional/verifyEntry;
+        const verifyLiq = (verifyNotional-saldo)/(verifyQty*(1-mmr-liqfee));
+        if(verifyLiq < sl - 1e-9){
+          fixes.push({label:'Atau ubah Target Risk:Reward minimal', value: RMin.toFixed(2)});
+        }
+      }
+    }
+
+    showLiqDanger(fixes);
+  }
+
+  let liqDangerShownForState = null;
+
+  function showLiqDanger(fixes){
+    els.liqFixList.innerHTML = '';
+    if(fixes.length === 0){
+      const li = document.createElement('li');
+      li.innerHTML = '<span class="lbl">Catatan</span>Kombinasi input ini tidak dapat diamankan hanya dengan menaikkan satu parameter secara wajar — pertimbangkan untuk menurunkan risk secara signifikan dan menaikkan saldo bersamaan.';
+      els.liqFixList.appendChild(li);
+    } else {
+      fixes.forEach(f => {
+        const li = document.createElement('li');
+        li.innerHTML = '<span class="lbl">' + f.label + '</span><b>' + f.value + '</b>';
+        els.liqFixList.appendChild(li);
+      });
+    }
+
+    // Hanya munculkan ulang popup jika kombinasi input berubah sejak terakhir ditutup
+    const stateKey = JSON.stringify(fixes.map(f=>f.value)) + '|' + els.outLiq.textContent;
+    if(liqDangerShownForState !== stateKey){
+      els.liqDangerOverlay.classList.add('show');
+      liqDangerShownForState = stateKey;
+    }
+  }
+
+  function hideLiqDanger(){
+    els.liqDangerOverlay.classList.remove('show');
+    liqDangerShownForState = null;
+  }
+
+  els.liqDangerClose.addEventListener('click', () => {
+    els.liqDangerOverlay.classList.remove('show');
+  });
+
   function resetOutputs(){
+    els.liqBox.classList.remove('danger');
+    hideLiqDanger();
     state.notional = null;
     els.dirBadge.textContent = '—';
     els.dirBadge.className = 'badge long';
