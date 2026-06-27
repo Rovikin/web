@@ -283,6 +283,18 @@
     0%,100%{box-shadow:0 0 0 1px rgba(255,59,48,0.4), 0 0 18px rgba(255,59,48,0.35);}
     50%{box-shadow:0 0 0 1px rgba(255,59,48,0.6), 0 0 28px rgba(255,59,48,0.55);}
   }
+  /* Kondisi aman: liq <= 0, harga tak mungkin tembus negatif -> tampilkan hijau */
+  .result-box.liq-box.safe{
+    border-color:rgba(61,220,151,0.45);
+    background:linear-gradient(180deg, rgba(61,220,151,0.10), var(--panel2) 65%);
+    animation:none;
+    box-shadow:none;
+  }
+  .result-box.liq-box.safe .rlabel{color:var(--accent);}
+  .result-box.liq-box.safe .rvalue{
+    color:var(--accent);
+    text-shadow:0 0 10px rgba(61,220,151,0.45);
+  }
   .err-box{
     background:rgba(239,83,80,0.08);
     border:1px solid rgba(239,83,80,0.35);
@@ -593,9 +605,19 @@
     els.outQty.textContent = 'Qty ≈ ' + quantity.toFixed(6);
 
     // Render liquidation (statis)
-    els.outLiq.textContent = fmtPrice(liq);
-    const distPct = ((liq - entry) / entry * 100);
-    els.outLiqDist.textContent = (distPct >= 0 ? '+' : '') + distPct.toFixed(2) + '% dari entry';
+    // Liq negatif = harga harus turun di bawah 0 untuk likuidasi -> mustahil terjadi,
+    // artinya posisi ini AMAN dari likuidasi (saldo jauh melebihi risiko maksimum size ini).
+    const liqIsSafe = liq <= 0;
+    if(liqIsSafe){
+      els.outLiq.textContent = fmtPrice(0);
+      els.outLiqDist.textContent = 'Aman dari likuidasi (saldo > risiko maksimum)';
+      els.liqBox.classList.add('safe');
+    } else {
+      els.outLiq.textContent = fmtPrice(liq);
+      const distPct = ((liq - entry) / entry * 100);
+      els.outLiqDist.textContent = (distPct >= 0 ? '+' : '') + distPct.toFixed(2) + '% dari entry';
+      els.liqBox.classList.remove('safe');
+    }
 
     // Risk / Reward — karena Entry diturunkan dari rrTarget, rasio aktual akan selalu = rrTarget.
     // Ditampilkan ulang di sini sebagai konfirmasi/verifikasi, bukan hitungan independen.
@@ -603,12 +625,10 @@
     els.outRR.textContent = '1 : ' + rrTarget.toFixed(2);
     els.outRRDetail.textContent = 'Risk ' + fmt(risk,2) + ' → potensi reward ' + fmt(reward,2) + ' USDT jika TP tercapai';
 
-    // Validasi liq price masuk akal
-    if(liq <= 0){
-      showWarn('Harga likuidasi terhitung negatif — saldo terlalu kecil dibanding size posisi ini. Naikkan saldo atau kecilkan risk/size.');
-    } else if(direction === 'short' && liq <= entry){
+    // Validasi liq price masuk akal (liq negatif TIDAK lagi dianggap warning — itu kondisi aman)
+    if(!liqIsSafe && direction === 'short' && liq <= entry){
       showWarn('Hasil tidak normal untuk SHORT (likuidasi harus di atas entry). Periksa kembali input Anda.');
-    } else if(direction === 'long' && liq >= entry){
+    } else if(!liqIsSafe && direction === 'long' && liq >= entry){
       showWarn('Hasil tidak normal untuk LONG (likuidasi harus di bawah entry). Periksa kembali input Anda.');
     }
 
@@ -723,7 +743,11 @@
     const k = (R + 1) * sl * (mmr + liqfee); // suku gabungan MMR+fee yang sudah diskalakan
     let isDanger = false;
 
-    if(direction === 'short'){
+    // Liq <= 0 berarti harga harus tembus di bawah nol untuk terlikuidasi — mustahil
+    // secara fisik. Posisi ini selalu AMAN dari likuidasi, terlepas dari arah/SL.
+    if(liq <= 0){
+      isDanger = false;
+    } else if(direction === 'short'){
       isDanger = liq <= sl;
     } else {
       isDanger = liq >= sl;
@@ -836,6 +860,7 @@
 
   function resetOutputs(){
     els.liqBox.classList.remove('danger');
+    els.liqBox.classList.remove('safe');
     hideLiqDanger();
     state.notional = null;
     els.dirBadge.textContent = '—';
@@ -871,3 +896,4 @@
 </script>
 </body>
 </html>
+
