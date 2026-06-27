@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Risk Simulator — Futures Trading</title>
+<style>
+  :root{
+    --bg:#0b0e14;
+    --panel:#11151f;
+    --panel2:#161b27;
+    --border:#232a3a;
+    --text:#e6e9f0;
+    --muted:#8b93a7;
+    --accent:#3ddc97;
+    --accent2:#5b8def;
+    --danger:#ef5350;
+    --warn:#f2b84b;
+    --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    padding:16px;
+    line-height:1.45;
+  }
+  .wrap{max-width:560px;margin:0 auto;}
+  h1{
+    font-size:18px;
+    font-weight:700;
+    margin:4px 0 2px;
+    letter-spacing:.2px;
+  }
+  .subtitle{color:var(--muted);font-size:12.5px;margin-bottom:16px;}
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px;
+    margin-bottom:14px;
+  }
+  .card h2{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.8px;
+    color:var(--muted);
+    margin:0 0 12px;
+    font-weight:600;
+  }
+  .field{margin-bottom:12px;}
+  .field:last-child{margin-bottom:0;}
+  label{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    font-size:13px;
+    color:var(--muted);
+    margin-bottom:5px;
+  }
+  label .unit{color:#5d6478;font-size:11px;}
+  input[type="number"], input[type="text"]{
+    width:100%;
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:10px 12px;
+    border-radius:9px;
+    font-size:15px;
+    font-family:var(--mono);
+    outline:none;
+    transition:border-color .15s;
+  }
+  input[type="number"]:focus, input[type="text"]:focus{
+    border-color:var(--accent2);
+  }
+  .dir-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:12px;
+  }
+  .dir-btn{
+    flex:1;
+    text-align:center;
+    padding:9px 0;
+    border-radius:9px;
+    border:1px solid var(--border);
+    background:var(--panel2);
+    color:var(--muted);
+    font-size:13px;
+    font-weight:600;
+  }
+  .dir-btn.active.long{border-color:var(--accent);color:var(--accent);background:rgba(61,220,151,0.08);}
+  .dir-btn.active.short{border-color:var(--danger);color:var(--danger);background:rgba(239,83,80,0.08);}
+
+  .result-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  .result-box{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:11px;
+    padding:12px;
+  }
+  .result-box.static{border-color:rgba(61,220,151,0.35);}
+  .result-box .rlabel{
+    font-size:11px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    display:flex;
+    align-items:center;
+    gap:5px;
+    margin-bottom:4px;
+  }
+  .pin{
+    font-size:9px;
+    background:rgba(61,220,151,0.15);
+    color:var(--accent);
+    border:1px solid rgba(61,220,151,0.4);
+    border-radius:5px;
+    padding:1px 5px;
+    letter-spacing:0;
+    text-transform:none;
+  }
+  .rvalue{
+    font-family:var(--mono);
+    font-size:18px;
+    font-weight:700;
+  }
+  .rsub{font-size:11px;color:var(--muted);margin-top:2px;}
+
+  .editable-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .editable-row input{
+    font-size:16px;
+    padding:8px 10px;
+  }
+  .stepper{
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+  }
+  .stepper button{
+    width:26px;height:18px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    color:var(--muted);
+    border-radius:5px;
+    font-size:11px;
+    line-height:1;
+    cursor:pointer;
+  }
+  input[type="range"]{
+    width:100%;
+    margin-top:8px;
+    accent-color:var(--accent2);
+  }
+
+  .badge{
+    display:inline-block;
+    font-size:11px;
+    padding:2px 8px;
+    border-radius:6px;
+    font-weight:700;
+    letter-spacing:.3px;
+  }
+  .badge.long{background:rgba(61,220,151,0.15);color:var(--accent);}
+  .badge.short{background:rgba(239,83,80,0.15);color:var(--danger);}
+
+  .warn-box{
+    background:rgba(242,184,75,0.08);
+    border:1px solid rgba(242,184,75,0.35);
+    color:#f2b84b;
+    border-radius:10px;
+    padding:10px 12px;
+    font-size:12.5px;
+    margin-top:10px;
+    display:none;
+  }
+  .err-box{
+    background:rgba(239,83,80,0.08);
+    border:1px solid rgba(239,83,80,0.35);
+    color:#ff8a85;
+    border-radius:10px;
+    padding:10px 12px;
+    font-size:12.5px;
+    margin-top:10px;
+    display:none;
+  }
+
+  details.adv{
+    margin-top:4px;
+  }
+  details.adv summary{
+    cursor:pointer;
+    font-size:12.5px;
+    color:var(--accent2);
+    user-select:none;
+    padding:4px 0;
+  }
+  .adv-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-top:10px;
+  }
+  .note{
+    font-size:11.5px;
+    color:#5d6478;
+    margin-top:10px;
+    border-top:1px dashed var(--border);
+    padding-top:10px;
+  }
+  .formula{
+    font-family:var(--mono);
+    font-size:11px;
+    color:#9aa3b8;
+    background:#0d1118;
+    border-radius:7px;
+    padding:8px 10px;
+    margin-top:6px;
+    overflow-x:auto;
+    white-space:pre;
+  }
+  .liq-line{
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px solid var(--border);
+    font-size:12px;
+    color:var(--muted);
+  }
+  .liq-line b{color:var(--text);}
+  footer{
+    text-align:center;
+    color:#454c5f;
+    font-size:10.5px;
+    margin:18px 0 4px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Risk Simulator</h1>
+  <div class="subtitle">Kalkulator position size, leverage &amp; harga likuidasi — Binance USDⓈ-M Futures (Cross Margin)</div>
+
+  <div class="card">
+    <h2>Input Posisi</h2>
+    <div class="field">
+      <label>Saldo dompet futures <span class="unit">USDT</span></label>
+      <input type="number" id="saldo" inputmode="decimal" placeholder="contoh: 139" value="139">
+    </div>
+    <div class="field">
+      <label>Risk (kerugian maksimum jika SL kena) <span class="unit">USDT</span></label>
+      <input type="number" id="risk" inputmode="decimal" placeholder="contoh: 5" value="5">
+    </div>
+    <div class="field">
+      <label>Take Profit (TP) <span class="unit">USDT</span></label>
+      <input type="number" id="tp" inputmode="decimal" placeholder="contoh: 58030" value="58030">
+    </div>
+    <div class="field">
+      <label>Stop Loss (SL) <span class="unit">USDT</span></label>
+      <input type="number" id="sl" inputmode="decimal" placeholder="contoh: 61931.1" value="61931.1">
+    </div>
+    <div class="field">
+      <label>Target Risk : Reward <span class="unit">rasio</span></label>
+      <input type="number" id="rrTarget" inputmode="decimal" step="0.1" placeholder="contoh: 4" value="4">
+    </div>
+
+    <details class="adv">
+      <summary>⚙ Asumsi lanjutan (maintenance margin &amp; fee likuidasi)</summary>
+      <div class="adv-grid">
+        <div class="field">
+          <label>Maintenance Margin Rate <span class="unit">%</span></label>
+          <input type="number" id="mmr" inputmode="decimal" step="0.01" value="0.4">
+        </div>
+        <div class="field">
+          <label>Liquidation clearance fee <span class="unit">%</span></label>
+          <input type="number" id="liqfee" inputmode="decimal" step="0.01" value="0.5">
+        </div>
+      </div>
+      <div class="note" style="margin-top:8px;">
+        Default 0.4% mengikuti tier maintenance margin terendah Binance untuk notional kecil; 0.5% adalah perkiraan tengah dari liquidation clearance fee terdokumentasi (berkisar ~0.5%–1.5% tergantung kontrak &amp; tier). Sesuaikan jika Anda punya data tier yang lebih presisi untuk pair yang ditradingkan.
+      </div>
+    </details>
+
+    <div id="errBox" class="err-box"></div>
+  </div>
+
+  <div class="card">
+    <h2>Hasil <span id="dirBadge" class="badge long">LONG</span></h2>
+
+    <div class="result-box static" style="margin-bottom:10px;">
+      <div class="rlabel">Entry <span class="pin">statis</span></div>
+      <div class="rvalue" id="outEntry">—</div>
+      <div class="rsub" id="outEntryDetail">dihitung dari TP, SL &amp; target R:R</div>
+    </div>
+
+    <div class="result-grid">
+      <div class="result-box static">
+        <div class="rlabel">Size / Posisi <span class="pin">statis</span></div>
+        <div class="rvalue" id="outSize">—</div>
+        <div class="rsub" id="outQty">—</div>
+      </div>
+      <div class="result-box static">
+        <div class="rlabel">Harga Likuidasi <span class="pin">statis</span></div>
+        <div class="rvalue" id="outLiq">—</div>
+        <div class="rsub" id="outLiqDist">—</div>
+      </div>
+    </div>
+
+    <div class="result-box static" style="margin-top:10px;">
+      <div class="rlabel">Risk / Reward <span class="pin">statis</span></div>
+      <div class="rvalue" id="outRR">—</div>
+      <div class="rsub" id="outRRDetail">—</div>
+    </div>
+
+    <div class="result-box" style="margin-top:10px;">
+      <div class="rlabel">Margin (dapat diubah)</div>
+      <div class="editable-row">
+        <input type="number" id="marginInput" inputmode="decimal" step="0.01">
+        <div class="stepper">
+          <button type="button" id="marginUp">▲</button>
+          <button type="button" id="marginDown">▼</button>
+        </div>
+      </div>
+      <input type="range" id="marginSlider" min="0" max="100" step="0.1">
+      <div class="rsub" id="marginHint">—</div>
+    </div>
+
+    <div class="result-box" style="margin-top:10px;">
+      <div class="rlabel">Leverage (menyesuaikan otomatis)</div>
+      <div class="rvalue" id="outLev">—</div>
+      <div class="rsub" id="outLevExact">—</div>
+    </div>
+
+    <div id="warnBox" class="warn-box"></div>
+
+    <div class="liq-line">
+      Mode <b>Cross Margin</b>: harga likuidasi dihitung dari <b>total saldo dompet</b>, bukan dari margin yang Anda alokasikan di atas. Karena itu, mengubah margin/leverage tidak mengubah harga likuidasi — sesuai sifat cross margin di Binance (selama saldo dompet tidak ditarik).
+      <div class="formula" id="formulaBox"></div>
+    </div>
+  </div>
+
+  <footer>
+    Estimasi untuk keperluan perencanaan risiko pribadi. Bukan nasihat keuangan. Verifikasi ulang di kalkulator resmi exchange sebelum eksekusi.
+  </footer>
+</div>
+
+<script>
+(function(){
+  const els = {
+    saldo: document.getElementById('saldo'),
+    risk: document.getElementById('risk'),
+    tp: document.getElementById('tp'),
+    sl: document.getElementById('sl'),
+    rrTarget: document.getElementById('rrTarget'),
+    mmr: document.getElementById('mmr'),
+    liqfee: document.getElementById('liqfee'),
+    dirBadge: document.getElementById('dirBadge'),
+    outEntry: document.getElementById('outEntry'),
+    outEntryDetail: document.getElementById('outEntryDetail'),
+    outSize: document.getElementById('outSize'),
+    outQty: document.getElementById('outQty'),
+    outLiq: document.getElementById('outLiq'),
+    outLiqDist: document.getElementById('outLiqDist'),
+    outRR: document.getElementById('outRR'),
+    outRRDetail: document.getElementById('outRRDetail'),
+    marginInput: document.getElementById('marginInput'),
+    marginSlider: document.getElementById('marginSlider'),
+    marginHint: document.getElementById('marginHint'),
+    marginUp: document.getElementById('marginUp'),
+    marginDown: document.getElementById('marginDown'),
+    outLev: document.getElementById('outLev'),
+    outLevExact: document.getElementById('outLevExact'),
+    warnBox: document.getElementById('warnBox'),
+    errBox: document.getElementById('errBox'),
+    formulaBox: document.getElementById('formulaBox'),
+  };
+
+  const MAX_LEVERAGE = 125;
+  let state = {
+    notional: null,
+    quantity: null,
+    saldo: null,
+    direction: null,
+    marginManuallySet: false,
+  };
+
+  function fmt(n, decimals){
+    if(n === null || n === undefined || isNaN(n)) return '—';
+    return n.toLocaleString('id-ID', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+  }
+
+  function fmtPrice(n){
+    if(n === null || n === undefined || isNaN(n)) return '—';
+    const decimals = n < 10 ? 6 : n < 1000 ? 4 : 2;
+    return n.toLocaleString('id-ID', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+  }
+
+  function showError(msg){
+    els.errBox.textContent = msg;
+    els.errBox.style.display = msg ? 'block' : 'none';
+  }
+
+  function showWarn(msg){
+    els.warnBox.textContent = msg;
+    els.warnBox.style.display = msg ? 'block' : 'none';
+  }
+
+  function calculate(){
+    const saldo = parseFloat(els.saldo.value);
+    const risk = parseFloat(els.risk.value);
+    const tp = parseFloat(els.tp.value);
+    const sl = parseFloat(els.sl.value);
+    const rrTarget = parseFloat(els.rrTarget.value);
+    const mmr = parseFloat(els.mmr.value) / 100;
+    const liqfee = parseFloat(els.liqfee.value) / 100;
+
+    showError('');
+    showWarn('');
+
+    if([saldo, risk, tp, sl, rrTarget].some(v => isNaN(v) || v <= 0)){
+      showError('Lengkapi semua input dengan angka positif terlebih dahulu.');
+      resetOutputs();
+      return;
+    }
+    if(tp === sl){
+      showError('TP dan SL tidak boleh sama.');
+      resetOutputs();
+      return;
+    }
+
+    // Arah posisi ditentukan dari posisi TP vs SL
+    const direction = tp < sl ? 'short' : 'long';
+
+    // Entry = titik pembagi segmen TP–SL sesuai target R:R
+    // jarak(TP, Entry) : jarak(Entry, SL) = rrTarget : 1
+    const entry = (rrTarget * sl + tp) / (rrTarget + 1);
+
+    const slDistance = Math.abs(entry - sl);
+    const notional = (risk * entry) / slDistance; // Size dalam USDT
+    const quantity = notional / entry; // jumlah koin/kontrak
+
+    state.notional = notional;
+    state.quantity = quantity;
+    state.saldo = saldo;
+    state.direction = direction;
+    state.mmr = mmr;
+    state.liqfee = liqfee;
+    state.entry = entry;
+
+    // Harga likuidasi — cross margin, posisi tunggal, equity = saldo dompet penuh
+    let liq;
+    if(direction === 'short'){
+      liq = (saldo + notional) / (quantity * (1 + mmr + liqfee));
+    } else {
+      liq = (notional - saldo) / (quantity * (1 - mmr - liqfee));
+    }
+
+    // Render badge arah
+    els.dirBadge.textContent = direction === 'short' ? 'SHORT' : 'LONG';
+    els.dirBadge.className = 'badge ' + direction;
+
+    // Render entry (statis, hasil dari TP/SL/RR)
+    els.outEntry.textContent = fmtPrice(entry);
+    els.outEntryDetail.textContent = 'dihitung dari TP, SL & target R:R 1:' + rrTarget.toFixed(2);
+
+    // Render size (statis)
+    els.outSize.textContent = fmt(notional, 2) + ' USDT';
+    els.outQty.textContent = 'Qty ≈ ' + quantity.toFixed(6);
+
+    // Render liquidation (statis)
+    els.outLiq.textContent = fmtPrice(liq);
+    const distPct = ((liq - entry) / entry * 100);
+    els.outLiqDist.textContent = (distPct >= 0 ? '+' : '') + distPct.toFixed(2) + '% dari entry';
+
+    // Risk / Reward — karena Entry diturunkan dari rrTarget, rasio aktual akan selalu = rrTarget.
+    // Ditampilkan ulang di sini sebagai konfirmasi/verifikasi, bukan hitungan independen.
+    const reward = risk * rrTarget; // potensi profit dalam USDT jika TP kena
+    els.outRR.textContent = '1 : ' + rrTarget.toFixed(2);
+    els.outRRDetail.textContent = 'Risk ' + fmt(risk,2) + ' → potensi reward ' + fmt(reward,2) + ' USDT jika TP tercapai';
+
+    // Validasi liq price masuk akal
+    if(liq <= 0){
+      showWarn('Harga likuidasi terhitung negatif — saldo terlalu kecil dibanding size posisi ini. Naikkan saldo atau kecilkan risk/size.');
+    } else if(direction === 'short' && liq <= entry){
+      showWarn('Hasil tidak normal untuk SHORT (likuidasi harus di atas entry). Periksa kembali input Anda.');
+    } else if(direction === 'long' && liq >= entry){
+      showWarn('Hasil tidak normal untuk LONG (likuidasi harus di bawah entry). Periksa kembali input Anda.');
+    }
+
+    // Formula reference text
+    if(direction === 'short'){
+      els.formulaBox.textContent =
+        'Entry = (R × SL + TP) / (R + 1)\n' +
+        `= (${rrTarget.toFixed(2)} × ${fmt(sl,2)} + ${fmt(tp,2)}) / ${(rrTarget+1).toFixed(2)} = ${fmtPrice(entry)}\n\n` +
+        'Liq(SHORT) = (Saldo + Notional) / [Qty × (1 + MMR + Fee)]\n' +
+        `= (${fmt(saldo,2)} + ${fmt(notional,2)}) / [${quantity.toFixed(6)} × (1 + ${(mmr*100).toFixed(2)}% + ${(liqfee*100).toFixed(2)}%)]\n` +
+        `= ${fmtPrice(liq)}`;
+    } else {
+      els.formulaBox.textContent =
+        'Entry = (R × SL + TP) / (R + 1)\n' +
+        `= (${rrTarget.toFixed(2)} × ${fmt(sl,2)} + ${fmt(tp,2)}) / ${(rrTarget+1).toFixed(2)} = ${fmtPrice(entry)}\n\n` +
+        'Liq(LONG) = (Notional − Saldo) / [Qty × (1 − MMR − Fee)]\n' +
+        `= (${fmt(notional,2)} − ${fmt(saldo,2)}) / [${quantity.toFixed(6)} × (1 − ${(mmr*100).toFixed(2)}% − ${(liqfee*100).toFixed(2)}%)]\n` +
+        `= ${fmtPrice(liq)}`;
+    }
+
+    // Set margin slider range mengikuti saldo & notional, lalu render margin/leverage
+    setupMarginRange();
+    if(!state.marginManuallySet){
+      els.marginInput.value = saldo.toFixed(2);
+    }
+    renderMarginLeverage();
+  }
+
+  function setupMarginRange(){
+    const minMargin = state.notional / MAX_LEVERAGE;
+    els.marginSlider.min = minMargin.toFixed(4);
+    els.marginSlider.max = state.saldo.toFixed(4);
+    els.marginSlider.step = Math.max((state.saldo - minMargin) / 200, 0.01).toFixed(4);
+    if(!state.marginManuallySet){
+      els.marginSlider.value = state.saldo.toFixed(4);
+    }
+  }
+
+  function renderMarginLeverage(){
+    if(state.notional === null) return;
+    let margin = parseFloat(els.marginInput.value);
+    const minMargin = state.notional / MAX_LEVERAGE;
+
+    if(isNaN(margin) || margin <= 0){
+      margin = state.saldo;
+    }
+    if(margin > state.saldo){
+      margin = state.saldo;
+      els.marginInput.value = margin.toFixed(2);
+    }
+    if(margin < minMargin){
+      margin = minMargin;
+      els.marginInput.value = margin.toFixed(2);
+    }
+
+    els.marginSlider.value = margin.toFixed(4);
+
+    const levExact = state.notional / margin;
+    const levRounded = Math.ceil(levExact);
+
+    els.outLev.textContent = levRounded + 'x';
+    els.outLevExact.textContent = 'pembulatan dari ' + levExact.toFixed(2) + 'x';
+
+    const pctOfSaldo = (margin / state.saldo * 100);
+    els.marginHint.textContent = fmt(margin,2) + ' USDT (' + pctOfSaldo.toFixed(1) + '% dari saldo)';
+
+    if(levRounded > MAX_LEVERAGE){
+      showWarn('Leverage yang dibutuhkan melebihi 125x. Naikkan margin atau perbesar saldo.');
+    } else if(margin >= minMargin && state.warnPersist !== true){
+      // clear margin-specific warning only if it was about leverage cap, biarkan warning lain (liq) tetap
+    }
+  }
+
+  function onMarginInputChange(){
+    state.marginManuallySet = true;
+    renderMarginLeverage();
+  }
+
+  function onMarginSliderChange(){
+    els.marginInput.value = parseFloat(els.marginSlider.value).toFixed(2);
+    state.marginManuallySet = true;
+    renderMarginLeverage();
+  }
+
+  function step(delta){
+    let v = parseFloat(els.marginInput.value) || 0;
+    v = Math.max(0, v + delta);
+    els.marginInput.value = v.toFixed(2);
+    state.marginManuallySet = true;
+    renderMarginLeverage();
+  }
+
+  function resetOutputs(){
+    state.notional = null;
+    els.dirBadge.textContent = '—';
+    els.dirBadge.className = 'badge long';
+    els.outEntry.textContent = '—';
+    els.outEntryDetail.textContent = '—';
+    els.outSize.textContent = '—';
+    els.outQty.textContent = '—';
+    els.outLiq.textContent = '—';
+    els.outLiqDist.textContent = '—';
+    els.outRR.textContent = '—';
+    els.outRRDetail.textContent = '—';
+    els.outLev.textContent = '—';
+    els.outLevExact.textContent = '—';
+    els.marginHint.textContent = '—';
+    els.formulaBox.textContent = '';
+  }
+
+  [els.saldo, els.risk, els.tp, els.sl, els.rrTarget, els.mmr, els.liqfee].forEach(el => {
+    el.addEventListener('input', () => {
+      state.marginManuallySet = false;
+      calculate();
+    });
+  });
+
+  els.marginInput.addEventListener('input', onMarginInputChange);
+  els.marginSlider.addEventListener('input', onMarginSliderChange);
+  els.marginUp.addEventListener('click', () => step(parseFloat(els.marginSlider.step) || 1));
+  els.marginDown.addEventListener('click', () => step(-(parseFloat(els.marginSlider.step) || 1)));
+
+  calculate();
+})();
+</script>
+</body>
+</html>

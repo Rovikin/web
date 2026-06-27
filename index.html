@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rovikin — Tools</title>
+<style>
+  :root{
+    --bg:#0b0e14;
+    --panel:#11151f;
+    --border:#232a3a;
+    --text:#e6e9f0;
+    --muted:#8b93a7;
+    --accent:#3ddc97;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    padding:24px 16px;
+  }
+  .wrap{max-width:560px;margin:0 auto;}
+  h1{font-size:20px;margin:0 0 4px;}
+  .subtitle{color:var(--muted);font-size:13px;margin-bottom:24px;}
+  a.tool{
+    display:block;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:16px;
+    margin-bottom:12px;
+    text-decoration:none;
+    color:var(--text);
+  }
+  a.tool:hover{border-color:var(--accent);}
+  a.tool .name{font-weight:700;font-size:15px;margin-bottom:4px;}
+  a.tool .desc{color:var(--muted);font-size:12.5px;}
+  footer{text-align:center;color:#454c5f;font-size:11px;margin-top:24px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Tools</h1>
+  <div class="subtitle">Kumpulan tools personal — Rovikin</div>
+
+  <a class="tool" href="./risk-simulator/">
+    <div class="name">Risk Simulator</div>
+    <div class="desc">Kalkulator position size, leverage, harga likuidasi &amp; risk/reward untuk futures trading (Binance Cross Margin).</div>
+  </a>
+
+</div>
+<footer>github.com/Rovikin/web</footer>
+</body>
+</html>
