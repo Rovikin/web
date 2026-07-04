@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ketika Bitcoin Hampir Ikut Tenggelam Bersama WikiLeaks</title>
+<style>
+  :root{
+    --paper:#e9e4d8;
+    --ink:#1c1a16;
+    --ink-soft:#4a453c;
+    --redact:#0f0d0b;
+    --accent:#8a1f11;
+    --line:#c9c1ac;
+    --stamp:#6b6154;
+  }
+
+  *{box-sizing:border-box;}
+
+  html{background:var(--redact);}
+
+  body{
+    margin:0;
+    background:var(--redact);
+    color:var(--ink);
+    font-family:'Courier New', Courier, monospace;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  @font-face{
+    font-family:'fallback-serif';
+    src:local('Georgia');
+  }
+
+  .sheet{
+    max-width:760px;
+    margin:0 auto;
+    background:var(--paper);
+    background-image:
+      radial-gradient(ellipse at top left, rgba(0,0,0,0.05), transparent 60%),
+      radial-gradient(ellipse at bottom right, rgba(0,0,0,0.06), transparent 55%);
+    box-shadow:0 0 80px rgba(0,0,0,0.6);
+    min-height:100vh;
+    padding:0 0 6rem 0;
+  }
+
+  /* HEADER / CLASSIFICATION BAR */
+  .classbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:14px 32px;
+    background:var(--redact);
+    color:#a89f8c;
+    font-size:11px;
+    letter-spacing:0.15em;
+    text-transform:uppercase;
+    border-bottom:3px double var(--accent);
+  }
+  .classbar span.tag{color:#c7402c;font-weight:bold;}
+
+  .fileheader{
+    padding:48px 40px 24px 40px;
+    border-bottom:1px solid var(--line);
+  }
+  .fileheader .doc-id{
+    font-size:12px;
+    color:var(--stamp);
+    letter-spacing:0.08em;
+    margin-bottom:18px;
+  }
+
+  h1.title{
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight:700;
+    font-size:2.5rem;
+    line-height:1.15;
+    margin:0 0 20px 0;
+    color:var(--ink);
+    letter-spacing:-0.01em;
+  }
+
+  .subtitle{
+    font-family: Georgia, serif;
+    font-style:italic;
+    font-size:1.05rem;
+    color:var(--ink-soft);
+    line-height:1.5;
+    margin:0 0 20px 0;
+    border-left:3px solid var(--accent);
+    padding-left:16px;
+  }
+
+  .meta-row{
+    display:flex;
+    gap:24px;
+    font-size:11px;
+    color:var(--stamp);
+    text-transform:uppercase;
+    letter-spacing:0.1em;
+    flex-wrap:wrap;
+  }
+
+  /* BODY */
+  .content{
+    padding:36px 40px 0 40px;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size:1.08rem;
+    line-height:1.75;
+    color:var(--ink);
+  }
+
+  .content h2{
+    font-family:'Courier New', monospace;
+    font-size:0.95rem;
+    text-transform:uppercase;
+    letter-spacing:0.12em;
+    color:var(--accent);
+    margin:3rem 0 1.2rem 0;
+    padding-bottom:10px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .content h2::before{
+    content:"§";
+    color:var(--stamp);
+  }
+
+  .content h3{
+    font-family:'Courier New', monospace;
+    font-size:1rem;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--ink-soft);
+    margin:2rem 0 0.8rem 0;
+  }
+
+  .content p{
+    margin:0 0 1.2em 0;
+  }
+
+  .content strong{color:var(--ink);font-weight:700;}
+
+  .content a{
+    color:var(--accent);
+    text-decoration:none;
+    border-bottom:1px solid rgba(138,31,17,0.4);
+  }
+  .content a:hover{border-bottom-color:var(--accent);}
+
+  blockquote{
+    margin:1.8em 0;
+    padding:1.2em 1.6em;
+    background:rgba(0,0,0,0.035);
+    border-left:3px solid var(--accent);
+    font-style:italic;
+    font-size:1rem;
+    color:var(--ink-soft);
+    position:relative;
+  }
+  blockquote cite{
+    display:block;
+    margin-top:0.8em;
+    font-style:normal;
+    font-family:'Courier New', monospace;
+    font-size:0.78rem;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    color:var(--stamp);
+  }
+
+  .redacted-block{
+    margin:2.2em 0;
+    padding:1.4em 1.6em;
+    background:var(--redact);
+    color:#d8d2c2;
+    font-family:'Courier New', monospace;
+    font-size:0.92rem;
+    line-height:1.7;
+    border-radius:2px;
+  }
+  .redacted-block .rb-label{
+    display:block;
+    font-size:0.7rem;
+    letter-spacing:0.15em;
+    text-transform:uppercase;
+    color:#c7402c;
+    margin-bottom:10px;
+  }
+
+  .caption-img{
+    margin:2rem 0;
+    text-align:center;
+  }
+  .caption-img img{
+    max-width:100%;
+    filter:sepia(15%) contrast(1.02);
+    border:1px solid var(--line);
+  }
+  .caption-img figcaption{
+    font-family:'Courier New', monospace;
+    font-size:0.78rem;
+    color:var(--stamp);
+    margin-top:8px;
+    font-style:italic;
+  }
+
+  .divider-stamp{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin:3rem 0;
+    color:var(--stamp);
+    font-family:'Courier New', monospace;
+    font-size:0.75rem;
+    letter-spacing:0.2em;
+    text-transform:uppercase;
+  }
+  .divider-stamp::before,
+  .divider-stamp::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:var(--line);
+  }
+
+  .price-tag{
+    font-family:'Courier New', monospace;
+    font-weight:bold;
+    color:var(--accent);
+  }
+
+  .epilogue{
+    margin-top:3rem;
+    padding-top:2rem;
+    border-top:3px double var(--line);
+  }
+  .epilogue .eyebrow{
+    font-family:'Courier New', monospace;
+    font-size:0.75rem;
+    letter-spacing:0.15em;
+    text-transform:uppercase;
+    color:var(--stamp);
+    margin-bottom:1rem;
+  }
+
+  .closing-line{
+    font-size:1.15rem;
+    font-style:italic;
+    color:var(--ink-soft);
+    text-align:center;
+    margin:3rem 0 1rem 0;
+    padding:1.5rem 0;
+    border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+  }
+
+  /* REFERENCES */
+  .references{
+    padding:36px 40px 0 40px;
+    font-family:'Courier New', monospace;
+    font-size:0.82rem;
+    color:var(--ink-soft);
+  }
+  .references h4{
+    text-transform:uppercase;
+    letter-spacing:0.15em;
+    font-size:0.75rem;
+    color:var(--stamp);
+    margin-bottom:1rem;
+  }
+  .references ol{
+    padding-left:1.4em;
+    line-height:1.8;
+    word-break:break-all;
+  }
+  .references a{
+    color:var(--ink-soft);
+    text-decoration:none;
+    border-bottom:1px dotted var(--line);
+  }
+  .references a:hover{color:var(--accent);}
+
+  .footer-source{
+    margin:3rem 40px 0 40px;
+    padding-top:1.5rem;
+    border-top:1px solid var(--line);
+    font-family:'Courier New', monospace;
+    font-size:0.72rem;
+    color:var(--stamp);
+    text-align:center;
+    letter-spacing:0.05em;
+  }
+
+  @media (max-width:600px){
+    .fileheader,.content,.references,.footer-source{padding-left:22px;padding-right:22px;}
+    h1.title{font-size:1.7rem;}
+    .classbar{padding:12px 18px;font-size:9.5px;}
+    .content{font-size:1rem;}
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <div class="classbar">
+    <span><span class="tag">ARSIP</span> · Sejarah Kripto</span>
+    <span>Berkas No. 2010-BTC-WL</span>
+  </div>
+
+  <div class="fileheader">
+    <div class="doc-id">Rekonstruksi Peristiwa — Desember 2010 &nbsp;/&nbsp; Sumber Primer: Bitcointalk Archive</div>
+    <h1 class="title">Ketika Bitcoin Hampir Ikut Tenggelam Bersama WikiLeaks</h1>
+    <p class="subtitle">Bagaimana keputusan Julian Assange nyaris menghancurkan proyek yang mengubah dunia, dan mengapa Satoshi memilih menghilang selamanya.</p>
+    <div class="meta-row">
+      <span>Ditulis ulang dari Binance Square</span>
+      <span>Subjek: BTC / Satoshi Nakamoto</span>
+      <span>Status: Tidak Terpecahkan</span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <h2>Tidak Ada Yang Percaya Bitcoin Pada Saat Itu</h2>
+    <p>Tahun 2008. Dunia sedang terbakar akibat krisis keuangan global.</p>
+    <p>Di tengah kehancuran itu, seseorang <em>(atau sekelompok orang)</em>, menggunakan nama samaran <strong>Satoshi Nakamoto</strong> mempublikasikan sebuah white paper: <strong>"Bitcoin: A Peer-to-Peer Electronic Cash System."</strong></p>
+    <p>Respons komunitas kriptografi sangat pesimis.</p>
+    <p>Bukan tanpa alasan. Sebelum Bitcoin, puluhan proyek mata uang digital telah mencoba dan gagal <em>(DigiCash, b-money, Bit Gold)</em>. Para ahli kriptografi sudah kenyang dengan klaim besar yang berujung pada kehancuran.</p>
+    <p>Namun kali ini ada yang berbeda.</p>
+    <p><strong>Nick Szabo</strong>, arsitek konsep Bit Gold. <strong>Hal Finney</strong>, pengembang kriptografi veteran yang menerima transaksi Bitcoin pertama dalam sejarah. <strong>Adam Back</strong>, pencipta Hashcash yang menjadi fondasi algoritma proof-of-work Bitcoin. Mereka melihat sesuatu yang orang lain lewatkan.</p>
+    <p>Satoshi tidak hanya menulis kode. Ia membangun komunitas.</p>
+    <p>Forum Bitcointalk menjadi markas besar. Satoshi hadir aktif mendiskusikan, menjelaskan, menjawab pertanyaan teknis yang kompleks dengan kesabaran luar biasa. Bug dilaporkan. Bug diperbaiki. Kepercayaan dibangun satu commit demi satu commit.</p>
+    <p>Proyek ini tumbuh secara organik. Perlahan. Hati-hati.</p>
+    <p><em>Terlalu hati-hati, ternyata, untuk menghadapi apa yang akan segera datang.</em></p>
+
+    <div class="divider-stamp">05 April 2010</div>
+
+    <h2>WikiLeaks dan Bom yang Meledak</h2>
+    <p>WikiLeaks merilis sebuah video berjudul <strong>"Collateral Murder".</strong></p>
+    <p>Rekaman dari kokpit helikopter militer AS di Baghdad, 2007. Terlihat jelas: pasukan AS menembaki warga sipil, termasuk dua jurnalis Reuters, sambil menertawai korban yang berjatuhan.</p>
+    <p><strong>Dunia terguncang.</strong></p>
+    <p><strong>Julian Assange</strong> <em>(pendiri WikiLeaks)</em> mendadak menjadi musuh publik nomor satu bagi pemerintah Amerika Serikat. Bukan hanya karena video itu. WikiLeaks kemudian membocorkan ratusan ribu dokumen diplomatik rahasia AS yang dikenal sebagai Cablegate, hasil kerja sama dengan <strong>Chelsea Manning</strong>, analis intelijen militer AS.</p>
+    <p>Reaksi Washington: brutal dan sistematis.</p>
+    <p>Seluruh rekening bank WikiLeaks diblokir. Visa, Mastercard, PayPal, semuanya menghentikan layanan ke WikiLeaks atas tekanan yang tidak pernah secara resmi diakui. Donasi dari seluruh dunia tidak bisa masuk.</p>
+    <p>WikiLeaks membutuhkan solusi. Mereka menemukan Bitcoin.</p>
+    <p>Untuk pertama kalinya dalam sejarah, Bitcoin memiliki use case yang nyata dan sangat publik: <strong>menerobos blokade finansial sebuah negara adidaya.</strong></p>
+
+    <h2>Satoshi Membaca Semuanya</h2>
+    <p>Di Bitcointalk, komunitas bergembira.</p>
+    <p>Ini adalah momen validasi. Bukti bahwa Bitcoin bukan sekadar eksperimen akademis. Seorang pengguna bahkan mengajukan usulan secara eksplisit agar WikiLeaks aktif menggunakan Bitcoin. Pengguna lain bersemangat: <em>"bring it on!"</em></p>
+    <p>Satoshi membaca semuanya.</p>
+    <p>Responsnya tidak mengandung euforia. Tepat pada <strong>5 Desember 2010</strong>, ia menulis di Bitcointalk:</p>
+
+    <blockquote>
+      "Tidak, jangan 'ajak saya'. Proyek ini perlu berkembang secara bertahap sehingga perangkat lunak dapat diperkuat seiring berjalannya waktu. Saya menyampaikan permohonan ini kepada WikiLeaks agar tidak mencoba menggunakan Bitcoin. Bitcoin adalah komunitas beta kecil yang masih dalam tahap awal. Anda tidak akan mendapatkan lebih dari uang receh, dan tekanan yang Anda timbulkan kemungkinan akan menghancurkan kami pada tahap ini."
+      <cite>Satoshi Nakamoto — Bitcointalk, 5 Desember 2010</cite>
+    </blockquote>
+
+    <p>Jelas. Tegas. Takut.</p>
+    <p>Bukan karena Satoshi tidak bersimpati pada perjuangan WikiLeaks. Melainkan karena ia memahami sesuatu yang komunitas belum pahami: Bitcoin pada 2010 adalah proyek yang sangat rapuh. Jaringannya kecil. Kodenya belum teruji secara nyata di skala besar. Satu serangan terkoordinasi dari lembaga pemerintah AS bisa mengakhiri segalanya dalam semalam.</p>
+    <p>Namun WikiLeaks tetap menerima donasi Bitcoin.</p>
+    <p><em>Dan media mulai meliput.</em></p>
+
+    <h2>Sarang Lebah Diusik</h2>
+    <p>Beberapa hari kemudian, sebuah artikel diterbitkan di PC World dengan judul: <strong>"Could the WikiLeaks Scandal Lead to New Virtual Currency?"</strong> <em>("Mungkinkah Skandal WikiLeaks Mengarah ke Mata Uang Virtual Baru?")</em></p>
+    <p>Bitcoin kini ada di radar media arus utama. Untuk pertama kalinya.</p>
+    <p>Dan Satoshi menulis komentar lanjutannya tentang WikiLeaks di Bitcointalk:</p>
+
+    <blockquote>
+      "Akan menyenangkan jika mendapatkan perhatian ini dalam konteks lain. WikiLeaks telah mengusik sarang lebah, dan kawanan lebah itu sedang menuju ke arah kita."
+      <cite>Satoshi Nakamoto — Bitcointalk, 11 Desember 2010</cite>
+    </blockquote>
+
+    <p>Tiga belas kata itu, <em>"Kawanan itu sedang menuju ke arah kita"</em>, mengandung segala yang perlu diketahui tentang apa yang dirasakan Satoshi saat itu.</p>
+    <p>Bukan kebanggaan. Bukan euforia. <strong>Ketakutan yang sangat nyata.</strong></p>
+
+    <h2>Faktor Gavin Andresen</h2>
+    <p>Tepat ketika tekanan eksternal sedang memuncak, datang kabar dari dalam komunitas sendiri.</p>
+    <p><strong>Gavin Andresen</strong>, salah satu kontributor terpercaya Bitcoin, pengembang yang bahkan pernah menciptakan Bitcoin Faucet dan mengisinya dengan 10.000 BTC dari kantongnya sendiri untuk mengenalkan Bitcoin kepada publik secara gratis, mengumumkan secara publik di Bitcointalk bahwa ia akan bertemu dengan <strong>CIA</strong> untuk mempresentasikan teknologi Bitcoin.</p>
+    <p>Bagi Satoshi, ini adalah titik kritis.</p>
+    <p>Gavin bukan orang jahat. Ia adalah pengembang yang berdedikasi. Namun pengumuman CIA itu meletakkan Satoshi di posisi yang tidak bisa ia toleransi.</p>
+    <p>Bayangkan posisi Satoshi pada saat itu:</p>
+    <ul style="padding-left:1.4em;">
+      <li style="margin-bottom:0.6em;">Identitasnya anonim, dijaga dengan sangat ketat.</li>
+      <li style="margin-bottom:0.6em;">Ia menciptakan alat yang kini digunakan oleh organisasi yang sedang diburu FBI dan CIA.</li>
+      <li style="margin-bottom:0.6em;">Dan sekarang, rekan komunitasnya akan bertatap muka langsung dengan badan intelijen AS untuk "menjelaskan" cara kerja teknologi tersebut.</li>
+    </ul>
+    <p>Dalam tradisi <em>cypherpunk</em>, ini bukan hanya ketidaknyamanan. <strong>Ini adalah ancaman eksistensial.</strong></p>
+
+    <h2>Postingan Terakhir di Bitcointalk</h2>
+    <p><strong>12 Desember 2010.</strong></p>
+    <p>Satoshi menulis postingan terakhirnya di Bitcointalk. Bukan tentang WikiLeaks. Bukan tentang CIA. Bukan tentang ketakutannya.</p>
+    <p>Tentang pekerjaan teknis yang belum selesai:</p>
+
+    <blockquote>
+      "Masih ada pekerjaan yang harus dilakukan pada DoS, tetapi saya sedang membuat versi awal dari apa yang sudah saya buat sejauh ini untuk berjaga-jaga jika diperlukan, sebelum mencoba ide-ide yang lebih kompleks. Versi yang saya buat adalah 0.3.19."
+      <cite>Satoshi Nakamoto — Bitcointalk, 12 Desember 2010</cite>
+    </blockquote>
+
+    <p>Profesional hingga kata terakhir.</p>
+    <p>Ia tidak berpamitan. Tidak berpidato. Tidak menulis manifesto perpisahan yang dramatis. Hanya catatan teknis tentang perlindungan <em>denial-of-service</em>, dan kemudian, keheningan total dari forum publik mana pun.</p>
+
+    <h2>Pesan Terakhir yang Pernah Ada</h2>
+    <p>Bulan-bulan berlalu. Satoshi masih sesekali berkomunikasi secara privat dengan beberapa pengembang inti.</p>
+    <p>Hingga <strong>23 April 2011</strong>.</p>
+    <p><strong>Mike Hearn</strong>, pengembang yang membangun BitcoinJ, implementasi Bitcoin dalam bahasa Java, mengirim email kepada Satoshi dan bertanya apakah ia berencana kembali ke komunitas. Satoshi menjawab:</p>
+
+    <blockquote>
+      "Saya sudah beralih ke hal lain. Sekarang semuanya berada di tangan yang tepat bersama Gavin dan semua orang."
+      <cite>Satoshi Nakamoto — Email kepada Mike Hearn, 23 April 2011</cite>
+    </blockquote>
+
+    <p>Beberapa hari kemudian, Satoshi mengirim email terpisah kepada Gavin Andresen, menyerahkan alert key jaringan Bitcoin: kunci kriptografis yang memungkinkan siapa pun yang memegangnya untuk menyiarkan peringatan darurat ke seluruh jaringan.</p>
+    <p>Ini bukan sekadar serah terima proyek. Ini adalah penghapusan diri secara sistematis.</p>
+    <p>Gavin kini memegang kunci. Satoshi tidak lagi memiliki apa pun yang mengikatnya pada Bitcoin.</p>
+    <p>Dan kemudian sebuah detail yang terasa terlalu besar untuk menjadi kebetulan: pada <strong>27 April 2011</strong>, satu hari setelah Satoshi menyerahkan alert key, Gavin mengumumkan bahwa ia akan berbicara di markas CIA pada bulan Juni.</p>
+    <p>Satoshi menghilang tepat sebelum pengumuman itu.</p>
+
+    <div class="divider-stamp">Analisis Teknis</div>
+
+    <h2>Dompet yang Tidak Bisa Diselamatkan</h2>
+    <p>Inilah bagian yang jarang dibicarakan secara serius.</p>
+    <p>Pada 2009–2010, Bitcoin Core tidak mengenal konsep seed phrase. Tidak ada 12 kata yang bisa ditulis di atas kertas. Tidak ada BIP-39. Tidak ada frasa mnemonik yang bisa dilaminating dan disimpan di dalam brankas.</p>
+    <p>Yang ada hanya satu file: <strong>wallet.dat</strong>, sebuah basis data terenkripsi berisi kunci privat. Tidak lebih, tidak kurang.</p>
+    <p>Electrum baru memperkenalkan konsep seed pada 2011, dengan format proprietary mereka sendiri (1.626 kata, bukan standar universal). BIP-39, standar seed phrase yang kini digunakan hampir semua dompet, baru dipublikasikan pada 2013. Hingga hari ini pun, Bitcoin Core tidak menggunakan BIP-39.</p>
+
+    <div class="redacted-block">
+      <span class="rb-label">Catatan Forensik</span>
+      Pada saat Satoshi menghilang, satu-satunya cara untuk mengamankan Bitcoin adalah menyimpan file wallet.dat secara fisik. Tidak ada cadangan mnemonik. Tidak ada jalur pemulihan standar.
+    </div>
+
+    <p>Sekarang bayangkan ulang skenarionya dengan jujur:</p>
+    <p>Anda adalah orang yang menciptakan alat yang kini digunakan oleh target utama FBI dan CIA. Identitas Anda anonim, namun investigasi forensik digital semakin canggih setiap harinya. Rekan kepercayaan Anda akan bertemu CIA bulan depan. Anda memegang sekitar satu juta Bitcoin, seharga <span class="price-tag">±$230.000</span> pada saat itu, yang tersimpan dalam sebuah file digital di komputer Anda.</p>
+
+    <h3>Apa yang Anda lakukan?</h3>
+    <p>Bagi seorang <em>cypherpunk</em> yang memahami cara kerja forensik digital lebih baik dari siapa pun, jawabannya bukan "sembunyikan." Bukan "enkripsi lebih kuat." Bukan "salin ke flash drive."</p>
+    <p>Jawabannya adalah: <strong>hancurkan segalanya</strong>.</p>
+    <p>Karena pada 2010, $230.000 tidak ada artinya dibandingkan kebebasan. Dan Satoshi tahu betul bahwa menyimpan wallet.dat dalam bentuk apa pun, di mana pun, adalah risiko yang tidak sepadan dengan nyawa.</p>
+
+    <h2>Mengapa Koin-Koin Itu Tidak Akan Pernah Bergerak</h2>
+    <p>Jika suatu hari dompet Satoshi bergerak, hanya ada dua kemungkinan yang layak dipertimbangkan secara serius:</p>
+    <p><strong>Pertama:</strong> Satoshi masih hidup, masih memegang wallet.dat asli, dan memutuskan untuk muncul kembali setelah lebih dari 15 tahun, skenario yang semakin tidak masuk akal setiap tahunnya.</p>
+    <p><strong>Kedua:</strong> Seseorang berhasil menjalankan algoritma Shor pada komputer kuantum dengan kapasitas yang cukup untuk memecahkan kurva eliptik secp256k1 (ECDSA-256), khususnya pada address P2PK era awal, di mana public key sudah terekspos langsung di blockchain tanpa lapisan perlindungan hash.</p>
+    <p>Untuk skenario kedua: komputer kuantum terbaik yang ada saat ini, IBM Flamingo dengan sekitar 4.158 qubit fisik dalam konfigurasi multi-chip, baru memiliki sekitar <strong>0,032%</strong> dari kapasitas fisik yang dibutuhkan (estimasi ±13 juta qubit fisik untuk serangan 1 jam, berdasarkan Webber et al., 2022).</p>
+    <p><strong>NIST</strong> memperkirakan komputer kuantum yang mampu mengancam ECDSA-256 tidak akan ada sebelum 2030–2040. Itupun jika perkembangan teknologi berjalan sesuai roadmap. Hambatannya bukan hanya jumlah qubit, melainkan tiga lapisan teknis yang harus diselesaikan bersamaan: jumlah qubit fisik, fidelitas per qubit, dan waktu koherensi.</p>
+    <p>Koin-koin itu diam. Sudah lebih dari 16 tahun. Dan kemungkinan besar, akan terus diam selamanya, bukan karena dijaga, melainkan karena kuncinya mungkin sudah tidak ada.</p>
+
+    <figure class="caption-img">
+			<img src="images/satoshi-last-post.jpg" alt="Postingan terakhir Satoshi Nakamoto di Bitcointalk">
+      <figcaption>Postingan terakhir Satoshi Nakamoto di Bitcointalk.</figcaption>
+    </figure>
+
+    <div class="epilogue">
+      <div class="eyebrow">Saat Artikel Ini Dibuat</div>
+      <p><strong>Julian Assange</strong> akhirnya bebas pada Juni 2024, setelah 12 tahun berlindung di Kedutaan Besar Ekuador di London dan 5 tahun mendekam di penjara Belmarsh, Inggris. Melalui kesepakatan plea deal dengan Departemen Kehakiman AS, ia kembali ke Australia sebagai orang bebas.</p>
+      <p><strong>Chelsea Manning</strong> dibebaskan lebih awal pada 2017, setelah Presiden Obama meringankan hukumannya.</p>
+      <p>Bitcoin, yang pada Desember 2010 diperdagangkan seharga $0,23 per koin, kini menjadi aset dengan kapitalisasi pasar triliunan dolar.</p>
+      <p>Dan <strong>Satoshi Nakamoto</strong>? Tidak ada yang tahu.</p>
+      <p>Mungkin ia menonton semua ini dari suatu tempat, tanpa sepeser pun Bitcoin yang pernah ia tambang. Atau mungkin tidak ada lagi yang tersisa untuk ditonton, karena hard drive-nya telah lama menjadi debu.</p>
+      <p>Yang jelas: koin-koin itu diam.</p>
+    </div>
+
+    <p class="closing-line">Dan keheningan itu, dengan caranya sendiri, adalah jawaban yang paling jujur dari semua yang pernah dikatakan Satoshi.</p>
+
+  </div>
+
+  <div class="references">
+    <h4>Referensi</h4>
+    <ol>
+      <li><a href="https://satoshi.nakamotoinstitute.org/posts/bitcointalk/523/" target="_blank" rel="noopener">satoshi.nakamotoinstitute.org/posts/bitcointalk/523</a></li>
+      <li><a href="https://satoshi.nakamotoinstitute.org/posts/bitcointalk/threads/241/" target="_blank" rel="noopener">satoshi.nakamotoinstitute.org/posts/bitcointalk/threads/241</a></li>
+      <li><a href="https://satoshi.nakamotoinstitute.org/quotes/general/" target="_blank" rel="noopener">satoshi.nakamotoinstitute.org/quotes/general</a></li>
+      <li><a href="https://blockchain.oodles.io/blog/satoshi-nakamoto-last-email/" target="_blank" rel="noopener">blockchain.oodles.io/blog/satoshi-nakamoto-last-email</a></li>
+      <li><a href="https://vancelian.com/en/news/the-elusive-satoshi-nakamoto-last-emails-reveal-bitcoin-creators-thoughts-before-disappearing-over-a-decade-ago" target="_blank" rel="noopener">vancelian.com — the-elusive-satoshi-nakamoto-last-emails</a></li>
+      <li><a href="https://thedefiant.io/news/people/bitcoin-creator-satoshi-nakamoto-sent-final-email-to-mike-hearn-on-april-23-2011-6735013c" target="_blank" rel="noopener">thedefiant.io — satoshi-final-email-to-mike-hearn</a></li>
+      <li><a href="https://en.wikipedia.org/wiki/WikiLeaks" target="_blank" rel="noopener">en.wikipedia.org/wiki/WikiLeaks</a></li>
+      <li><a href="https://en.wikipedia.org/wiki/Satoshi_Nakamoto" target="_blank" rel="noopener">en.wikipedia.org/wiki/Satoshi_Nakamoto</a></li>
+      <li><a href="https://avs.scitation.org/doi/10.1116/5.0073075" target="_blank" rel="noopener">avs.scitation.org/doi/10.1116/5.0073075</a></li>
+    </ol>
+  </div>
+
+  <div class="footer-source">
+    Disusun ulang secara independen dari publikasi asli di Binance Square oleh Chixi &nbsp;·&nbsp; Konten memuat opini pihak ketiga dan hasil rekonstruksi historis dari sumber terbuka.
+  </div>
+
+</div>
+
+</body>
+</html>

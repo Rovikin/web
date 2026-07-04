@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Menelusuri Lazarus Group</title>
+<style>
+  :root{
+    --bg:#0b0d0f;
+    --panel:#12151a;
+    --panel-2:#161a20;
+    --line:#262c34;
+    --text:#c9d1d9;
+    --text-dim:#7d8590;
+    --accent:#c9402e;
+    --accent-dim:#7a2e24;
+    --ok:#3fb950;
+    --warn:#d29922;
+    --mono:'IBM Plex Mono','SF Mono','Consolas',monospace;
+    --serif-body:'Georgia','Times New Roman',serif;
+  }
+
+  *{box-sizing:border-box;}
+  html{background:var(--bg);}
+
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--mono);
+    -webkit-font-smoothing:antialiased;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+  }
+
+  .wrap{
+    max-width:820px;
+    margin:0 auto;
+    padding-bottom:5rem;
+  }
+
+  /* TOP BAR */
+  .topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px 28px;
+    background:#000;
+    border-bottom:2px solid var(--accent);
+    font-size:10.5px;
+    letter-spacing:0.15em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .topbar .blink{color:var(--accent);font-weight:700;}
+
+  /* HEADER */
+  .header{
+    padding:56px 32px 32px 32px;
+    border-bottom:1px solid var(--line);
+  }
+  .header .doctype{
+    font-size:11px;
+    letter-spacing:0.2em;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin-bottom:14px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .header .doctype::before{
+    content:"";
+    width:8px;height:8px;
+    background:var(--accent);
+    border-radius:50%;
+    display:inline-block;
+    box-shadow:0 0 8px var(--accent);
+  }
+
+  h1.title{
+    font-family:var(--mono);
+    font-weight:700;
+    font-size:2.1rem;
+    line-height:1.25;
+    margin:0 0 18px 0;
+    color:#fff;
+    letter-spacing:-0.01em;
+  }
+
+  .lede{
+    font-family:var(--serif-body);
+    font-size:1.05rem;
+    line-height:1.7;
+    color:var(--text);
+    margin:0 0 24px 0;
+    max-width:640px;
+  }
+
+  .meta-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    margin-top:20px;
+  }
+  .meta-cell{
+    background:var(--panel);
+    padding:12px 14px;
+  }
+  .meta-cell .k{
+    font-size:9.5px;
+    text-transform:uppercase;
+    letter-spacing:0.12em;
+    color:var(--text-dim);
+    display:block;
+    margin-bottom:4px;
+  }
+  .meta-cell .v{
+    font-size:13px;
+    color:var(--text);
+  }
+  .meta-cell .v.flag{color:var(--accent);font-weight:700;}
+
+  /* CONTENT */
+  .content{
+    padding:8px 32px 0 32px;
+  }
+
+  .content h2{
+    font-family:var(--mono);
+    font-size:1.05rem;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:#fff;
+    margin:3.2rem 0 1.2rem 0;
+    padding:10px 14px;
+    background:var(--panel-2);
+    border-left:4px solid var(--accent);
+  }
+
+  .content h3{
+    font-family:var(--mono);
+    font-size:0.92rem;
+    font-weight:700;
+    color:var(--accent);
+    margin:2.2rem 0 0.9rem 0;
+    letter-spacing:0.02em;
+  }
+
+  .content p{
+    font-family:var(--serif-body);
+    font-size:1.02rem;
+    line-height:1.75;
+    color:var(--text);
+    margin:0 0 1.15em 0;
+  }
+
+  .content strong{color:#fff;font-weight:700;}
+  .content em{color:var(--text-dim);}
+
+  .content a{
+    color:#e0a86f;
+    text-decoration:none;
+    border-bottom:1px dotted rgba(224,168,111,0.4);
+  }
+  .content a:hover{border-bottom-style:solid;}
+
+  .content ul{
+    font-family:var(--serif-body);
+    font-size:1rem;
+    line-height:1.7;
+    color:var(--text);
+    padding-left:1.3em;
+    margin:1em 0 1.4em 0;
+  }
+  .content ul li{margin-bottom:0.5em;}
+
+  /* UNIT CARDS */
+  .unit-card{
+    margin:1.6rem 0;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:3px;
+    overflow:hidden;
+  }
+  .unit-card .unit-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    padding:14px 18px;
+    background:var(--panel-2);
+    border-bottom:1px solid var(--line);
+  }
+  .unit-card .unit-head .name{
+    font-family:var(--mono);
+    font-size:0.95rem;
+    font-weight:700;
+    color:#fff;
+  }
+  .unit-card .unit-head .id{
+    font-family:var(--mono);
+    font-size:0.72rem;
+    color:var(--text-dim);
+    letter-spacing:0.05em;
+  }
+  .unit-card .unit-body{
+    padding:16px 18px;
+  }
+  .unit-card .unit-body p{margin-bottom:0.9em;font-size:0.98rem;}
+  .field-label{
+    display:inline-block;
+    font-family:var(--mono);
+    font-size:0.72rem;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--warn);
+    margin-right:8px;
+  }
+
+  /* TIMELINE */
+  .timeline{
+    margin:1.8rem 0;
+    border-left:2px solid var(--line);
+    padding-left:0;
+  }
+  .tl-item{
+    position:relative;
+    padding:0 0 1.6rem 28px;
+    border-left:2px solid var(--line);
+    margin-left:-2px;
+  }
+  .tl-item:last-child{padding-bottom:0;}
+  .tl-item::before{
+    content:"";
+    position:absolute;
+    left:-6px;
+    top:4px;
+    width:10px;height:10px;
+    background:var(--accent);
+    border-radius:50%;
+    box-shadow:0 0 0 3px var(--bg), 0 0 0 4px var(--accent-dim);
+  }
+  .tl-date{
+    font-family:var(--mono);
+    font-size:0.82rem;
+    font-weight:700;
+    color:var(--accent);
+    letter-spacing:0.03em;
+    margin-bottom:4px;
+    display:block;
+  }
+  .tl-item p{
+    font-family:var(--serif-body);
+    font-size:0.98rem;
+    line-height:1.65;
+    margin:0;
+    color:var(--text);
+  }
+
+  .phase-label{
+    font-family:var(--mono);
+    font-size:0.78rem;
+    letter-spacing:0.15em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    margin:2.6rem 0 1rem 0;
+    padding-bottom:8px;
+    border-bottom:1px dashed var(--line);
+  }
+
+  /* STAT BLOCK */
+  .stat-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    margin:1.8rem 0;
+  }
+  .stat-box{
+    background:var(--panel);
+    padding:18px 16px;
+  }
+  .stat-box .num{
+    font-family:var(--mono);
+    font-size:1.5rem;
+    font-weight:700;
+    color:var(--accent);
+    display:block;
+    line-height:1.2;
+  }
+  .stat-box .lbl{
+    font-family:var(--mono);
+    font-size:0.7rem;
+    color:var(--text-dim);
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    margin-top:6px;
+    display:block;
+  }
+
+  /* IMAGE */
+  .fig{
+    margin:2rem 0;
+    border:1px solid var(--line);
+    background:var(--panel);
+    padding:6px;
+  }
+  .fig img{
+    width:100%;
+    display:block;
+    filter:grayscale(8%) contrast(1.03);
+  }
+  .fig figcaption{
+    font-family:var(--mono);
+    font-size:0.72rem;
+    color:var(--text-dim);
+    padding:10px 6px 4px 6px;
+    line-height:1.5;
+  }
+
+  blockquote{
+    margin:1.6rem 0;
+    padding:1rem 1.4rem;
+    background:var(--panel);
+    border-left:3px solid var(--warn);
+    font-family:var(--serif-body);
+    font-style:italic;
+    font-size:0.98rem;
+    color:var(--text);
+  }
+
+  /* CAVEAT / ANALYST NOTE */
+  .analyst-note{
+    margin:3rem 0 0 0;
+    padding:1.6rem 1.8rem;
+    background:linear-gradient(180deg, rgba(210,153,34,0.06), transparent);
+    border:1px solid var(--warn);
+    border-radius:3px;
+  }
+  .analyst-note .an-head{
+    font-family:var(--mono);
+    font-size:0.75rem;
+    letter-spacing:0.15em;
+    text-transform:uppercase;
+    color:var(--warn);
+    margin-bottom:12px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .analyst-note .an-head::before{content:"⚠";}
+  .analyst-note p{
+    font-family:var(--serif-body);
+    font-size:0.96rem;
+    line-height:1.7;
+    color:var(--text);
+    margin:0 0 0.9em 0;
+  }
+
+  /* SOURCES */
+  .sources{
+    padding:0 32px;
+    margin-top:3rem;
+  }
+  .sources h4{
+    font-family:var(--mono);
+    font-size:0.75rem;
+    letter-spacing:0.15em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    border-bottom:1px solid var(--line);
+    padding-bottom:10px;
+    margin-bottom:1rem;
+  }
+  .sources ol{
+    font-family:var(--mono);
+    font-size:0.82rem;
+    line-height:1.9;
+    color:var(--text-dim);
+    padding-left:1.4em;
+  }
+  .sources ol li{margin-bottom:4px;}
+
+  .footer-bar{
+    margin:3rem 32px 0 32px;
+    padding-top:1.4rem;
+    border-top:1px solid var(--line);
+    font-family:var(--mono);
+    font-size:0.72rem;
+    color:var(--text-dim);
+    text-align:center;
+    letter-spacing:0.03em;
+  }
+
+  @media (max-width:640px){
+    .header,.content,.sources,.footer-bar{padding-left:18px;padding-right:18px;}
+    h1.title{font-size:1.5rem;}
+    .meta-grid{grid-template-columns:1fr;}
+    .topbar{padding:10px 16px;font-size:9px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <span><span class="blink">●</span> THREAT INTELLIGENCE ARCHIVE</span>
+    <span>REF: DPRK-CYBER-001</span>
+  </div>
+
+  <div class="header">
+    <div class="doctype">Dossier Aktor Ancaman &nbsp;/&nbsp; Non-Klasifikasi</div>
+    <h1 class="title">Menelusuri Lazarus Group</h1>
+    <p class="lede">Eksploitasi yang berkaitan dengan mata uang kripto yang terjadi sejak awal Januari 2026 telah menarik perhatian saya pada satu entitas yang seringkali disebut-sebut namanya: Lazarus Group. Nama ini menjadi familiar di telinga saya sejak insiden Bybit Exploit. Hingga hari ini, entitas tersebut telah menarik perhatian dari para detektif on-chain, termasuk Specter dan juga ZachXBT.</p>
+
+    <div class="meta-grid">
+      <div class="meta-cell">
+        <span class="k">Entitas</span>
+        <span class="v">Lazarus Group / RGB</span>
+      </div>
+      <div class="meta-cell">
+        <span class="k">Asal</span>
+        <span class="v">Korea Utara (DPRK)</span>
+      </div>
+      <div class="meta-cell">
+        <span class="k">Status</span>
+        <span class="v flag">Aktif — Eskalasi</span>
+      </div>
+      <div class="meta-cell">
+        <span class="k">Periode Operasi</span>
+        <span class="v">2009 — Sekarang</span>
+      </div>
+      <div class="meta-cell">
+        <span class="k">Kumulatif Curian (2019–2025)</span>
+        <span class="v flag">$6,75 Miliar</span>
+      </div>
+      <div class="meta-cell">
+        <span class="k">Disusun oleh</span>
+        <span class="v">Chixi — Binance Square</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <p>Apa sebenarnya Lazarus Group ini? Mari kita telusuri lebih lanjut.</p>
+
+    <div class="fig">
+      <img src="images/lazarus-01-intro.jpg" alt="Ilustrasi Lazarus Group">
+    </div>
+
+    <h2>01 — Akar Historis (Sebelum "Lazarus" Ada)</h2>
+    <p>Pembentukan kapasitas cyber Korea Utara jauh lebih tua dari nama <em>"Lazarus"</em> itu sendiri. Direktur NK Intellectuals Solidarity, Heung Kwan Kim, menyatakan Korea Utara terinspirasi dari unit <strong>cyberwar Tiongkok</strong> dan belajar dari mereka. Menyadari kekuatannya, Korea Utara mendirikan unit pertama di pemerintahan pusat pada 1993.</p>
+    <p>Versi lain menyebut periode pembentukan sedikit berbeda: genesis Bureau 121 bisa dilacak ke akhir 1990-an ketika Korea Utara mulai menyadari potensi teknologi informasi sebagai alat pertahanan dan ofensif nasional. Rezim menyadari operasi cyber bisa jadi strategi peperangan asimetris melawan musuh yang superior secara teknologi, khususnya musuh utama mereka Korea Selatan dan Amerika Serikat.</p>
+    <p>Riset lain (Hunt &amp; Hackett) menyebut tahun pembentukan yang lebih spesifik: tanda-tanda paling awal Lazarus bisa dilacak ke 2007, saat Korea Utara di bawah kekuasaan Kim Jong Il, ayah dari pemimpin saat ini Kim Jong Un. Lazarus diyakini didirikan sebagai unit cyberwarfare di bawah Reconnaissance General Bureau (RGB), agensi intelijen utama Korea Utara.</p>
+
+    <blockquote>
+      "Serangan cyber itu seperti bom atom" dan "perang dimenangkan atau dikalahkan oleh siapa yang punya akses lebih besar ke informasi teknis militer musuh di masa damai."
+      <br><br>— Kim Jong Il, dikutip dari laporan mengenai motivasi investasi cyber warfare rezim
+    </blockquote>
+
+    <p>Meski tidak pasti, kemungkinan mereka juga berada di belakang serangan 2007 yang menyasar Korea Selatan.</p>
+
+    <div class="fig">
+      <img src="images/lazarus-02-operation-troy.jpg" alt="Operation Troy">
+    </div>
+
+    <h2>02 — Operasi Pertama yang Terdokumentasi (Operation Troy)</h2>
+    <p>Serangan pertama yang dikenal dan diatribusikan ke kelompok ini disebut <strong>"Operation Troy"</strong>, berlangsung dari 2009 sampai 2012. Sebuah kampanye cyber-espionage yang memanfaatkan teknik DDoS yang tidak terlalu sofistikan untuk menyasar pemerintah Korea Selatan di Seoul.</p>
+    <p>Insiden hacking besar pertama Lazarus Group terjadi pada 4 Juli 2009, memicu awal dari "Operation Troy". Serangan ini menggunakan malware Mydoom dan Dozer untuk meluncurkan serangan DDoS skala besar namun tidak terlalu sofistikan terhadap website AS dan Korea Selatan. Rentetan serangan ini menghantam sekitar tiga lusin website dan menaruh teks <em>"Memory of the Independence Day"</em> di master boot record (MBR).</p>
+    <p>Evolusi taktik berlanjut, serangan Maret 2011 yang disebut <strong>"Ten Days of Rain"</strong> menyasar media, finansial, dan infrastruktur kritis Korea Selatan, terdiri dari serangan DDoS yang lebih sofistikan yang berasal dari komputer yang dikompromikan di dalam Korea Selatan. Serangan berlanjut pada 20 Maret 2013 dengan <strong>DarkSeoul</strong>, serangan wiper yang menyasar tiga perusahaan penyiaran Korea Selatan, institusi finansial, dan satu ISP.</p>
+
+    <h2>03 — Dari Espionase ke Pendanaan Rezim</h2>
+    <p>Titik balik strategis terjadi pasca-kematian pemimpin lama. Operasi paling awal Lazarus cenderung berfokus pada espionase dan disrupsi, terutama menyasar organisasi di Amerika Serikat dan Korea Selatan. Setelah kematian Kim Jong Il pada 2011, Kim Jong Un berupaya memperluas visi ayahnya dan memanfaatkan kapasitas cyber negara untuk menghasilkan pendapatan bagi rezim.</p>
+
+    <h2>04 — Struktur Komando: RGB, Bureau 121, dan Lab 110</h2>
+    <p>Ini bagian paling kompleks dan paling sering disalahpahami, termasuk oleh media. Berikut breakdown struktur sesuai sumber paling kredibel <em>(Mandiant/Google Cloud)</em>:</p>
+
+    <div class="unit-card">
+      <div class="unit-head">
+        <span class="name">Reconnaissance General Bureau (RGB)</span>
+        <span class="id">INDUK ORGANISASI</span>
+      </div>
+      <div class="unit-body">
+        <p>RGB didirikan pada 2009, adalah agensi intelijen Korea Utara yang bertanggung jawab atas spionase, operasi rahasia, dan cyber espionage. RGB terdiri dari enam bureau berbeda, dengan Bureau ke-3 (Foreign Intelligence) dan Bureau ke-5 (Inter-Korean Affairs) yang memegang porsi utama operasi.</p>
+      </div>
+    </div>
+
+    <div class="unit-card">
+      <div class="unit-head">
+        <span class="name">Bureau 121 → Lab 110</span>
+        <span class="id">EVOLUSI UNIT UTAMA</span>
+      </div>
+      <div class="unit-body">
+        <p>Menurut Mandiant: Lab 110 adalah titik fokus untuk "Lazarus Group" sebagai payung istilah. TEMP.Hermit, APT38, dan Andariel kemungkinan berada di bawah Lab 110. Lab 110 kemungkinan adalah versi yang diperluas dan direorganisasi dari "Bureau 121," yang sering disebut sebagai unit hacking utama Korea Utara.</p>
+        <p>Pelaporan open-source sering menggunakan judul "Lazarus Group" sebagai payung istilah, merujuk pada banyak operator cyber Korea Utara, namun Mandiant melacaknya secara terpisah. Meski TEMP.Hermit paling sering disejajarkan dengan pelaporan Lazarus Group, peneliti dan sumber terbuka sering menggabungkan ketiga set aktor ini, bahkan terkadang semua APT Korea Utara, hanya sebagai "Lazarus Group".</p>
+        <p><span class="field-label">Etimologi</span>Nama "Bureau 121" diyakini berasal dari kombinasi nomor unit dan referensi umum ke kebijakan militer-utama Korea Utara yang dikenal sebagai "Songun".</p>
+      </div>
+    </div>
+
+    <p><span class="field-label">Ambiguitas Belum Terselesaikan</span></p>
+    <p>Bahkan komunitas riset profesional mengakui bahwa tidak ada pemahaman umum di komunitas threat intelligence, akademisi, maupun otoritas negara tentang hierarki yang jelas terdefinisi atau organisasi unit cyber Korea Utara dan penamaan APT mereka masing-masing. Sumber akademik lain bahkan mencatat versi hierarki terbalik: sumber lama, seperti satu bab akademik dari peneliti Korea Selatan tahun 2019, menganggap Lab 110 justru berada di bawah Bureau 121, kontradiksi langsung dengan asumsi Mandiant bahwa Lab 110 adalah evolusi dari Bureau 121.</p>
+
+    <p><span class="field-label">Filosofi Operasional</span></p>
+    <p>Ciri khas struktur operasional Bureau 121 adalah fokus pada kerahasiaan dan plausible deniability. Unit ini menggunakan taktik false flag dan memanfaatkan kelompok hacking yang seolah independen (seperti Lazarus Group) untuk lebih mengaburkan aktivitasnya. Ini memungkinkan Korea Utara menjauhkan diri dari aksi cybernya sambil tetap menikmati keuntungan dari disrupsi yang ditimbulkan.</p>
+
+    <h2>05 — Bureau 325 (Unit yang Lebih Baru)</h2>
+    <p>Ada perkembangan struktural lebih lanjut yang relevan untuk konteks 2021+. Bureau 325 diumumkan secara publik pada Januari 2021, dan menunjukkan peningkatan tanggung jawab yang mengindikasikan kelompok ini telah dengan cepat memperoleh kepercayaan dari kepemimpinan senior DPRK dan kemungkinan memperoleh keunggulan posisi.</p>
+
+    <h2>06 — Skala Total Kekuatan Cyber Korea Utara</h2>
+    <p>Di luar Lazarus spesifik, total kapasitas cyber negara jauh lebih besar: para ahli menyatakan ada antara 6.000 hingga 7.500 anggota tentara cyber Korea Utara, terbagi dalam beberapa divisi untuk melakukan cyberterrorism terhadap infrastruktur negara, institusi finansial, dan yang terbaru pembajakan teknologi pertahanan. Dalam hierarki ini, Unit 121 mengawasi Unit 180, Unit 91, dan Lab 110.</p>
+
+    <div class="fig">
+      <img src="images/lazarus-03-subunit.jpg" alt="Sub-unit Lazarus Group">
+    </div>
+
+    <h2>07 — Profil Detail Sub-Unit</h2>
+
+    <div class="unit-card">
+      <div class="unit-head">
+        <span class="name">BlueNoroff / APT38 / Stardust Chollima / Sapphire Sleet</span>
+        <span class="id">MESIN FINANSIAL</span>
+      </div>
+      <div class="unit-body">
+        <p>Aktif setidaknya sejak 2014, APT38 telah menyasar bank, institusi finansial, kasino, bursa kripto, endpoint sistem SWIFT, dan ATM di setidaknya 38 negara di seluruh dunia.</p>
+        <p><span class="field-label">Operasi Signifikan</span>Heist Bank of Bangladesh 2016 senilai $81 juta, serta serangan terhadap Bancomext dan Banco de Chile — sebagian bersifat destruktif.</p>
+        <p><span class="field-label">Estimasi Personel</span>Sekitar 1.700 anggota.</p>
+        <p><span class="field-label">Sub-unit Terkait</span>"CryptoCore" atau "Dangerous Password", kemungkinan subgrup dari APT38 yang juga fokus pada aktivitas finansial.</p>
+        <p><span class="field-label">Catatan Kaspersky (2017)</span>Lazarus cenderung berkonsentrasi pada spionase dan infiltrasi, sementara sub-grup yang disebut Bluenoroff berspesialisasi dalam serangan finansial. Kaspersky menemukan tautan langsung (alamat IP) antara Bluenoroff dan Korea Utara — namun juga mengakui repetisi kode bisa jadi "false flag" untuk menyesatkan investigator, mengingat worm WannaCry global menyalin teknik dari NSA juga.</p>
+        <p>Ransomware WannaCry memanfaatkan exploit NSA bernama EternalBlue yang dibocorkan kelompok hacker Shadow Brokers pada April 2017. Meski demikian, Symantec melaporkan pada 2017 bahwa "sangat mungkin" Lazarus berada di belakang serangan tersebut.</p>
+      </div>
+    </div>
+
+    <div class="unit-card">
+      <div class="unit-head">
+        <span class="name">Andariel / Onyx Sleet / Jumpy Pisces</span>
+        <span class="id">ESPIONASE & RANSOMWARE</span>
+      </div>
+      <div class="unit-body">
+        <p>Fokus pada operasi espionase terutama menyasar pertahanan, pemerintahan, dan infrastruktur kritis Korea Selatan, dengan peningkatan operasi ransomware terhadap organisasi kesehatan global.</p>
+        <p><span class="field-label">Personel & Misi</span>Menurut laporan 2020 dari Angkatan Darat AS, Andariel memiliki sekitar 1.600 anggota yang bermisi melakukan reconnaissance, asesmen kerentanan network, dan pemetaan network musuh untuk potensi serangan.</p>
+        <p><span class="field-label">Target & Vektor</span>Selain Korea Selatan, juga menyasar pemerintahan, infrastruktur, dan bisnis negara lain. Vektor serangan meliputi ActiveX, kerentanan software Korea Selatan, watering hole attacks, spear phishing (macro), produk IT management (antivirus, PMS), dan supply chain (installer/updater).</p>
+        <p><span class="field-label">Malware Signature</span>Aryan, Gh0st RAT, Rifdoor, Phandoor, dan Andarat.</p>
+      </div>
+    </div>
+
+    <div class="unit-card">
+      <div class="unit-head">
+        <span class="name">TEMP.Hermit</span>
+        <span class="id">INTELIJEN STRATEGIS</span>
+      </div>
+      <div class="unit-body">
+        <p>Diyakini berfokus pada pengumpulan intelijen strategis, dikenal menyasar organisasi di sektor pemerintahan, pertahanan, telekomunikasi, dan finansial.</p>
+      </div>
+    </div>
+
+    <h3>Indikator Atribusi Resmi (Legal/Hukum)</h3>
+    <p>Pada Februari 2021, Departemen Kehakiman AS mendakwa tiga anggota Reconnaissance General Bureau atas partisipasi mereka dalam beberapa kampanye hacking Lazarus: Park Jin Hyok, Jon Chang Hyok, dan Kim Il Park. Jin Hyok sudah didakwa lebih awal pada September 2018.</p>
+
+    <h2>08 — Track Record Kronologis Lengkap</h2>
+
+    <div class="phase-label">Fase I — Espionase Murni (2009–2013)</div>
+    <div class="fig">
+      <img src="images/lazarus-04-fase1.jpg" alt="Fase I Espionase">
+    </div>
+    <p>Lihat rincian pada bagian "Operation Troy" dan "Ten Days of Rain" di atas — periode ini didominasi serangan DDoS dan wiper terhadap Korea Selatan.</p>
+
+    <div class="phase-label">Fase II — Ekspansi Global & Destruktif (2014–2016)</div>
+    <div class="timeline">
+      <div class="tl-item">
+        <span class="tl-date">2014</span>
+        <p>Sony Pictures Entertainment. Balasan atas film "The Interview" yang menggambarkan pembunuhan Kim Jong-un; kelompok ini mencuri dan membocorkan data rahasia termasuk film yang belum dirilis, informasi karyawan, dan email memalukan eksekutif; mengerahkan malware destruktif yang menghapus data dari ribuan komputer; membuat ancaman teror terhadap bioskop yang menayangkan film tersebut. FBI secara resmi mengatribusikan serangan ini ke Korea Utara — salah satu atribusi publik pertama serangan cyber besar ke aktor negara.</p>
+      </div>
+      <div class="tl-item">
+        <span class="tl-date">2016</span>
+        <p>Bank Sentral Bangladesh. Percobaan pencurian hampir $1 miliar dari bank sentral Bangladesh menggunakan jaringan perbankan SWIFT (realisasi $81 juta yang berhasil dicuri).</p>
+      </div>
+    </div>
+
+    <div class="phase-label">Fase III — Pivot ke Kripto (2017–2021)</div>
+    <div class="timeline">
+      <div class="tl-item">
+        <span class="tl-date">2017</span>
+        <p>Lazarus dituduh menyerang bursa kripto Korea Selatan Bithumb. Pencuri cyber membawa hampir $7 juta mata uang digital, juga mendapatkan informasi pribadi pengguna yang tersimpan di server terkompromisasi. BBC melaporkan Korea Utara kemudian mampu memeras dana tambahan dari pemilik dengan imbalan menghapus data tersebut.</p>
+      </div>
+      <div class="tl-item">
+        <span class="tl-date">2017</span>
+        <p><strong>WannaCry</strong> menginfeksi lebih dari 200.000 komputer di 150 negara, melumpuhkan sistem kritis termasuk NHS Inggris.</p>
+      </div>
+      <div class="tl-item">
+        <span class="tl-date">2017</span>
+        <p>Youbit bangkrut setelah 17% aset dicuri; NiceHash kehilangan 4.500+ BTC.</p>
+      </div>
+    </div>
+
+    <div class="fig">
+      <img src="images/lazarus-05-fase3.jpg" alt="Fase III Pivot ke Kripto">
+    </div>
+
+    <div class="phase-label">Fase IV — Era DeFi Masif (2022–2024)</div>
+    <div class="timeline">
+      <div class="tl-item">
+        <span class="tl-date">Maret 2022</span>
+        <p>Ronin Network / Axie Infinity ($620–625 juta), dikonfirmasi FBI sebagai kerja Lazarus + APT38.</p>
+      </div>
+      <div class="tl-item">
+        <span class="tl-date">Juni 2022</span>
+        <p>Harmony Horizon Bridge ($100 juta), dikonfirmasi FBI.</p>
+      </div>
+      <div class="tl-item">
+        <span class="tl-date">2023</span>
+        <p>Diversifikasi target tinggi, ($300+ juta) total kerugian (17,6% dari kerugian tahun itu), termasuk Atomic Wallet ($100 juta), Stake.com ($41 juta, dikonfirmasi FBI), CoinEx, Alphapo, CoinsPaid (kombinasi $308,6 juta Juni–September).</p>
+      </div>
+      <div class="tl-item">
+        <span class="tl-date">Mei 2024</span>
+        <p>DMM Bitcoin ($308 juta).</p>
+      </div>
+    </div>
+
+    <div class="phase-label">Fase V — Eskalasi Ekstrem (2025–2026)</div>
+    <div class="fig">
+      <img src="images/lazarus-06-fase5.jpg" alt="Fase V Eskalasi Ekstrem">
+    </div>
+    <div class="timeline">
+      <div class="tl-item">
+        <span class="tl-date">Februari 2025</span>
+        <p><strong>Bybit ($1,5 miliar)</strong> — heist tunggal terbesar dalam sejarah menurut FBI. Modusnya, kode berbahaya disuntikkan ke software wallet, menipu operator agar menyetujui transaksi ke alamat hacker.</p>
+      </div>
+      <div class="tl-item">
+        <span class="tl-date">12 Maret 2026</span>
+        <p>OFAC menambah sanksi baru menyasar jaringan IT worker DPRK.</p>
+      </div>
+      <div class="tl-item">
+        <span class="tl-date">1–18 April 2026</span>
+        <p>Drift Protocol ($285 juta), lalu KelpDAO/LayerZero pada 18 April 2026 ($292 juta). Penyerang mengompromikan node RPC yang digunakan DVN (Decentralized Verifier Network) milik LayerZero Labs, dan kemudian menguras 116.500 rsETH milik KelpDAO; dampak meluas hingga $13 miliar TVL tergerus dari seluruh DeFi dalam 2 hari.</p>
+      </div>
+      <div class="tl-item">
+        <span class="tl-date">April 2026</span>
+        <p>Kampanye malware <strong>"Mach-O Man"</strong>, kit malware macOS modular dari divisi Chollima, delivery via teknik ClickFix (korban diminta paste command terminal Mac untuk "memperbaiki" masalah koneksi palsu), self-deleting setelah eksekusi.</p>
+      </div>
+    </div>
+
+    <h2>09 — Statistik Kumulatif & Skala</h2>
+
+    <div class="stat-grid">
+      <div class="stat-box">
+        <span class="num">$2,02 Miliar</span>
+        <span class="lbl">Dicuri pada 2025 (+51% YoY)</span>
+      </div>
+      <div class="stat-box">
+        <span class="num">$6,75 Miliar</span>
+        <span class="lbl">Akumulasi 2019–2025</span>
+      </div>
+      <div class="stat-box">
+        <span class="num">76%</span>
+        <span class="lbl">Dari seluruh service compromise (2025)</span>
+      </div>
+      <div class="stat-box">
+        <span class="num">6.000–7.500</span>
+        <span class="lbl">Estimasi tentara cyber DPRK</span>
+      </div>
+    </div>
+
+    <p>Cakupan geografis ekstrem — korban tersebar di puluhan negara dari Albania hingga Zambia, mencakup hampir seluruh benua. UN Panel of Experts memperkirakan dana hasil pencurian kripto membiayai porsi material dari program pengembangan misil balistik dan senjata nuklir Korea Utara.</p>
+
+    <div class="fig">
+      <img src="images/lazarus-07-statistik.jpg" alt="Statistik Kumulatif">
+    </div>
+
+    <h2>10 — Modus Operandi Teknis</h2>
+
+    <h3>Social Engineering & Fake Recruitment</h3>
+    <p>Lazarus semakin canggih menggunakan social engineering berbasis AI. Aktor dengan identitas palsu lengkap resume, portfolio, dan kemampuan interview telah menyusup ke pipeline rekrutmen perusahaan.</p>
+
+    <h3>Evolusi IT Worker Scheme</h3>
+    <p>Program berevolusi dari operatif yang melamar pekerjaan remote di perusahaan kripto, menjadi orkestrasi proses rekrutmen palsu, menyamar sebagai recruiter perusahaan Web3/AI ternama untuk memanen kredensial, source code, dan akses VPN.</p>
+
+    <h3>Operasi Lintas Negara</h3>
+    <p>Banyak operatif bekerja dari lokasi luar negeri (terutama China, tapi juga Rusia, Asia Tenggara, dan Eropa Timur) untuk mengakses infrastruktur internet yang lebih baik dan mempertahankan keamanan operasional.</p>
+
+    <h3>Sistem Pendidikan Pemasok Talenta</h3>
+    <ul>
+      <li><strong>Kim Il-Sung University</strong> — universitas paling prestisius negara dengan program khusus computer science dan keamanan informasi.</li>
+      <li><strong>Mirim College</strong> — dikenal untuk melatih spesialis computer warfare.</li>
+      <li><strong>Korea Automation Center</strong> — melakukan pelatihan teknis lanjutan untuk personel cyberwarfare.</li>
+    </ul>
+    <p>Siswa terpilih menjalani pelatihan bertahun-tahun sebelum ditempatkan di unit operasional.</p>
+
+    <h3>Pencucian Dana Pasca-Heist</h3>
+    <p>Alur laundering mengikuti empat tahap, dimulai dari pergerakan cross-chain cepat — dalam hitungan jam dana di-bridge dari chain asal ke Ethereum untuk likuiditas dan opsi mixing lebih besar. Pasca sanksi Tornado Cash dan vonis Roman Storm, respons mereka adalah adaptasi, bukan penurunan aktivitas.</p>
+    <p><span class="field-label">Jalur Konversi Fiat</span>Dana sering mengalir ke marketplace P2P seperti Paxful dan Noones.</p>
+
+    <div class="fig">
+      <img src="images/lazarus-08-btc-tx.jpg" alt="Transaksi Bitcoin Lazarus Group">
+      <figcaption>Transaksi Bitcoin terbaru yang ditandai sebagai dompet milik Lazarus Group (menurut Arkham Intelligence) tercatat di Blockchain Bitcoin 3 hari yang lalu.</figcaption>
+    </div>
+
+    <div class="analyst-note">
+      <div class="an-head">Catatan Analis / Batasan Interpretasi</div>
+      <p>Penting untuk dipahami bahwa struktur organisasi Lazarus yang dipaparkan di atas (RGB, Lab 110, Bureau 121, hingga sub-unit seperti BlueNoroff dan Andariel) bukanlah hierarki yang disepakati bulat oleh komunitas keamanan. Bahkan lembaga riset sekaliber Mandiant dan EuRepoC mengakui belum ada konsensus pasti soal siapa membawahi siapa. Ini bukan kegagalan riset, melainkan hasil dari desain operasional Bureau 121 sendiri yang sejak awal mengutamakan kerahasiaan dan plausible deniability.</p>
+      <p>Risiko false-flag juga tidak pernah benar-benar tertutup. Kaspersky sendiri pernah mengakui pada 2017 bahwa kemiripan kode bisa jadi rekayasa untuk menyesatkan investigator — mengingat WannaCry, salah satu serangan paling diasosiasikan dengan Lazarus, justru memanfaatkan tools NSA yang dicuri Shadow Brokers.</p>
+      <p>Begitu pula penyebutan "Lazarus" dalam insiden-insiden terbaru seperti Bybit dan KelpDAO: banyak laporan awal masih berstatus "indikasi" atau "kemungkinan atribusi" dari vendor keamanan swasta, bukan konfirmasi forensik resmi dari lembaga seperti FBI. Demikian juga angka kekuatan personel yang sering dikutip (1.600 hingga 1.700 per unit, atau total 3.300–7.500 anggota) berasal dari estimasi sumber yang berbeda-beda dengan metodologi yang tidak terbuka ke publik, sehingga patut diperlakukan sebagai perkiraan, bukan fakta pasti.</p>
+    </div>
+
+  </div>
+
+  <div class="sources">
+    <h4>Sumber</h4>
+    <ol>
+      <li>VOA News — Where Did North Korea's Cyber Army Come From?</li>
+      <li>TerraZone — Lazarus Group: The Complete Guide to North Korea's Dangerous Cyber Threat Actors</li>
+      <li>Hunt &amp; Hackett — Threat Actor Profile: Lazarus</li>
+      <li>Wikipedia — Lazarus Group</li>
+      <li>Mandiant / Google Cloud Blog — Not So Lazarus: Mapping DPRK Cyber Threat Groups to Government Organizations</li>
+      <li>EuRepoC (European Repository of Cyber Incidents) — APT Profile: Lazarus Group</li>
+      <li>UMA Technology — Bureau 121, North Korea's Elite Cyber Hacking Unit</li>
+      <li>Bugcrowd — Lazarus Group Glossary</li>
+      <li>MITRE ATT&amp;CK — Group G0032 (Lazarus Group)</li>
+      <li>ResearchGate — "Lazarus" The North Korean Hacker Group (jurnal akademik)</li>
+      <li>Chainalysis — 2026 Crypto Crime Report</li>
+      <li>CertiK — riset kampanye malware "Mach-O Man"</li>
+    </ol>
+    <h4 style="margin-top:1.6rem;">Sumber Gambar</h4>
+    <ol>
+      <li>Arkham Intelligence</li>
+      <li>Mempool Space (transaksi Bitcoin)</li>
+    </ol>
+  </div>
+
+  <div class="footer-bar">
+    Disusun ulang secara independen dari publikasi asli di Binance Square oleh Chixi &nbsp;·&nbsp; Memuat opini dan analisis pihak ketiga, sebagian atribusi bersifat indikatif — bukan konfirmasi forensik resmi.
+  </div>
+
+</div>
+</body>
+</html>
