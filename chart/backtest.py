@@ -5,14 +5,21 @@ Kompatibel dengan Termux standar tanpa instalasi library tambahan.
 
 Cara pakai:
     python3 backtest.py                          # auto-scan semua .csv di folder ini, ringkasan pendek
-    python3 backtest.py --detail                 # auto-scan semua .csv, tampilkan detail penuh + ringkasan
+    python3 backtest.py --detail                 # auto-scan semua .csv, detail penuh + ringkasan + tulis README.md
     python3 backtest.py <file_csv>                # satu file, ringkasan pendek
-    python3 backtest.py <file_csv> --detail       # satu file, detail penuh
+    python3 backtest.py <file_csv> --detail       # satu file, detail penuh + tulis README.md
     python3 backtest.py <file_csv_1> <file_csv_2> # banyak file spesifik, ringkasan pendek
 
 Contoh:
     python3 backtest.py
     python3 backtest.py btcusdt_1d.csv ethusdt_1d.csv --detail
+
+CATATAN README.md:
+Hanya flag --detail yang menulis/memperbarui README.md di direktori kerja saat ini.
+Perintah biasa (tanpa --detail) TIDAK pernah menyentuh README.md.
+Jika README.md sudah ada, hanya bagian di antara marker
+<!-- BACKTEST_RESULTS_START --> ... <!-- BACKTEST_RESULTS_END -->
+yang diperbarui -- konten lain yang Anda tulis manual di luar marker tetap aman.
 """
 import csv
 import glob
@@ -152,8 +159,12 @@ def backtest_dual_ema(closes, fast, slow):
         'calmar': calmar,
     }
 
-def run_one_file(path, verbose=True):
-    """Jalankan optimasi penuh untuk satu file CSV, return (path, best_result_or_None, bh_return)."""
+def run_one_file(path, verbose=True, collect_detail=False):
+    """
+    Jalankan optimasi penuh untuk satu file CSV.
+    Return (path, best_result_or_None, bh_return, detail_dict_or_None).
+    detail_dict berisi top10_return & top10_calmar (list of dict) -- dipakai untuk render markdown.
+    """
     rows = load_csv(path)
     closes = [r['close'] for r in rows]
 
@@ -186,14 +197,14 @@ def run_one_file(path, verbose=True):
         if verbose:
             msg = "Tidak ada kombinasi yang menghasilkan trade cukup."
             console.print(f"[red]{msg}[/red]") if HAS_RICH else print(msg)
-        return path, None, bh_return
+        return path, None, bh_return, None
 
     results.sort(key=lambda x: x['total_return_pct'], reverse=True)
+    results_calmar = sorted(results, key=lambda x: x['calmar'], reverse=True)
 
     if verbose:
         if HAS_RICH:
             _print_rich_table("TOP 10 berdasarkan Total Return", results[:10])
-            results_calmar = sorted(results, key=lambda x: x['calmar'], reverse=True)
             _print_rich_table("TOP 10 berdasarkan Calmar (risk-adjusted)", results_calmar[:10])
         else:
             print("=== TOP 10 berdasarkan Total Return ===")
@@ -202,7 +213,6 @@ def run_one_file(path, verbose=True):
                 print(f"{r['fast']:>5} {r['slow']:>5} {r['n_trades']:>7} {r['win_rate']:>7.1f}% {r['total_return_pct']:>11.2f}% {r['max_dd_pct']:>8.2f}% {r['calmar']:>8.2f}")
 
             print("\n=== TOP 10 berdasarkan Calmar (risk-adjusted) ===")
-            results_calmar = sorted(results, key=lambda x: x['calmar'], reverse=True)
             print(f"{'Fast':>5} {'Slow':>5} {'Trades':>7} {'WinRate':>8} {'Return%':>12} {'MaxDD%':>9} {'Calmar':>8}")
             for r in results_calmar[:10]:
                 print(f"{r['fast']:>5} {r['slow']:>5} {r['n_trades']:>7} {r['win_rate']:>7.1f}% {r['total_return_pct']:>11.2f}% {r['max_dd_pct']:>8.2f}% {r['calmar']:>8.2f}")
@@ -211,7 +221,170 @@ def run_one_file(path, verbose=True):
         rekomendasi = f"\n>> Rekomendasi (return tertinggi): EMA {best['fast']}/{best['slow']}"
         console.print(f"[bold green]{rekomendasi}[/bold green]") if HAS_RICH else print(rekomendasi)
 
-    return path, results[0], bh_return
+    detail = None
+    if collect_detail:
+        detail = {
+            "total_candle": len(rows),
+            "top10_return": results[:10],
+            "top10_calmar": results_calmar[:10],
+        }
+
+    return path, results[0], bh_return, detail
+
+
+def _md_table(headers, rows):
+    """Bangun tabel markdown standar dari header dan list-of-list baris."""
+    lines = []
+    lines.append("| " + " | ".join(headers) + " |")
+    lines.append("|" + "|".join(["---"] * len(headers)) + "|")
+    for row in rows:
+        lines.append("| " + " | ".join(str(c) for c in row) + " |")
+    return "\n".join(lines)
+
+
+def _fmt_pct(val):
+    sign = "+" if val > 0 else ""
+    return f"{sign}{val:.2f}%"
+
+
+def generate_markdown_section(summary_with_detail):
+    """
+    Bangun konten markdown lengkap (tanpa header/footer README) dari hasil backtest.
+    summary_with_detail: list of (path, best, bh, detail)
+    """
+    lines = []
+    lines.append(f"**Fee yang digunakan:** {FEE_PCT}% per sisi ({2*FEE_PCT}% round-trip)")
+    lines.append(f"**Grid EMA yang diuji:** fast {FAST_CANDIDATES} x slow {SLOW_CANDIDATES}")
+    lines.append("")
+
+    # --- Tabel ringkasan utama di atas ---
+    lines.append("## Ringkasan Hasil")
+    lines.append("")
+    headers = ["Pair", "Timeframe", "Total Candle", "EMA Terbaik", "Return", "Max DD", "Buy & Hold", "vs B&H"]
+    table_rows = []
+    for path, best, bh, detail in summary_with_detail:
+        pair, tf_label = parse_filename(path)
+        candle_count = detail["total_candle"] if detail else "-"
+        if best is None:
+            table_rows.append([pair, tf_label, candle_count, "-", "-", "-", _fmt_pct(bh), "-"])
+        else:
+            beats = best['total_return_pct'] > bh
+            vs_label = "✅ Menang" if beats else "❌ Kalah"
+            table_rows.append([
+                f"**{pair}**", tf_label, candle_count,
+                f"`{best['fast']}/{best['slow']}`",
+                _fmt_pct(best['total_return_pct']),
+                f"{best['max_dd_pct']:.2f}%",
+                _fmt_pct(bh),
+                vs_label,
+            ])
+    lines.append(_md_table(headers, table_rows))
+    lines.append("")
+
+    # --- Detail per file ---
+    lines.append("## Detail per Aset")
+    lines.append("")
+
+    for path, best, bh, detail in summary_with_detail:
+        pair, tf_label = parse_filename(path)
+        lines.append(f"### {pair} ({tf_label})")
+        lines.append("")
+
+        if best is None or detail is None:
+            lines.append("_Data tidak cukup untuk pengujian ini._")
+            lines.append("")
+            continue
+
+        candle_count = detail["total_candle"]
+        lines.append(f"- **File sumber:** `{path}`")
+        lines.append(f"- **Total candle:** {candle_count}")
+        lines.append(f"- **Buy & Hold:** {_fmt_pct(bh)}")
+        lines.append(f"- **Rekomendasi (return tertinggi):** EMA `{best['fast']}/{best['slow']}` "
+                      f"→ Return {_fmt_pct(best['total_return_pct'])}, MaxDD {best['max_dd_pct']:.2f}%")
+        lines.append("")
+
+        lines.append("**Top 10 berdasarkan Total Return**")
+        lines.append("")
+        headers_detail = ["Fast", "Slow", "Trades", "Win Rate", "Return", "Max DD", "Calmar"]
+        rows_return = [
+            [r['fast'], r['slow'], r['n_trades'], f"{r['win_rate']:.1f}%",
+             _fmt_pct(r['total_return_pct']), f"{r['max_dd_pct']:.2f}%", f"{r['calmar']:.2f}"]
+            for r in detail["top10_return"]
+        ]
+        lines.append(_md_table(headers_detail, rows_return))
+        lines.append("")
+
+        lines.append("**Top 10 berdasarkan Calmar (risk-adjusted)**")
+        lines.append("")
+        rows_calmar = [
+            [r['fast'], r['slow'], r['n_trades'], f"{r['win_rate']:.1f}%",
+             _fmt_pct(r['total_return_pct']), f"{r['max_dd_pct']:.2f}%", f"{r['calmar']:.2f}"]
+            for r in detail["top10_calmar"]
+        ]
+        lines.append(_md_table(headers_detail, rows_calmar))
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+README_INTRO = """# Hasil Pengujian EMA Crossover
+
+Repositori ini berisi hasil pengujian sistematis strategi *dual EMA crossover*
+(beli saat EMA cepat memotong ke atas EMA lambat, jual saat memotong ke bawah)
+pada berbagai aset kripto, timeframe daily, dengan asumsi fee trading 0,15% per sisi.
+
+Pengujian dilakukan dengan grid search murni (mencoba banyak kombinasi EMA fast/slow),
+mengambil kombinasi dengan return tertinggi sebagai representasi tiap aset. Hasil ini
+bersifat in-sample (belum divalidasi walk-forward out-of-sample) kecuali disebutkan lain,
+sehingga sebaiknya tidak dijadikan dasar tunggal untuk keputusan trading nyata.
+
+Data & hasil di bawah ini dihasilkan otomatis oleh `backtest.py` dan diperbarui
+setiap kali script dijalankan dengan flag `--detail`.
+
+---
+
+"""
+
+README_OUTRO = """
+
+---
+
+_Dihasilkan otomatis oleh `backtest.py`. Metodologi: dual EMA crossover, long-only,
+fee dihitung di setiap entry & exit, tanpa slippage. Hasil in-sample murni --
+lihat catatan walk-forward terpisah untuk validasi out-of-sample._
+"""
+
+README_START_MARKER = "<!-- BACKTEST_RESULTS_START -->"
+README_END_MARKER = "<!-- BACKTEST_RESULTS_END -->"
+
+
+def write_readme(summary_with_detail, readme_path="README.md"):
+    """
+    Tulis/perbarui README.md:
+    - Jika belum ada -> buat dengan intro + hasil + outro, dibungkus marker.
+    - Jika sudah ada -> ganti HANYA konten di antara marker, pertahankan bagian lain
+      yang mungkin sudah ditulis manual oleh pengguna di luar marker.
+    """
+    body = generate_markdown_section(summary_with_detail)
+    wrapped_body = f"{README_START_MARKER}\n\n{body}\n\n{README_END_MARKER}"
+
+    if os.path.exists(readme_path):
+        with open(readme_path, "r", encoding="utf-8") as f:
+            existing = f.read()
+        if README_START_MARKER in existing and README_END_MARKER in existing:
+            pre = existing.split(README_START_MARKER)[0]
+            post = existing.split(README_END_MARKER)[1]
+            new_content = pre + wrapped_body + post
+        else:
+            # Belum ada marker -- anggap file lama, tambahkan hasil baru di akhir
+            new_content = existing.rstrip() + "\n\n" + wrapped_body + "\n"
+    else:
+        new_content = README_INTRO + wrapped_body + README_OUTRO
+
+    with open(readme_path, "w", encoding="utf-8") as f:
+        f.write(new_content)
+
+    return readme_path
 
 
 def _print_rich_table(title, rows):
@@ -264,8 +437,8 @@ def main():
     for i, path in enumerate(paths):
         if detail_mode and i > 0:
             (console.rule() if HAS_RICH else print("\n" + "=" * 78 + "\n"))
-        p, best, bh = run_one_file(path, verbose=detail_mode)
-        summary.append((p, best, bh))
+        p, best, bh, detail = run_one_file(path, verbose=detail_mode, collect_detail=detail_mode)
+        summary.append((p, best, bh, detail))
 
     if detail_mode:
         if HAS_RICH:
@@ -285,7 +458,7 @@ def main():
         table.add_column("B&H%", justify="right")
         table.add_column("vs B&H", justify="center")
 
-        for path, best, bh in summary:
+        for path, best, bh, _detail in summary:
             pair, tf_label = parse_filename(path)
             if best is None:
                 table.add_row(pair, tf_label, "--/--", "-", "-", f"{bh:.2f}%", "-")
@@ -306,7 +479,7 @@ def main():
         console.print(table)
     else:
         print("\nResult:")
-        for path, best, bh in summary:
+        for path, best, bh, _detail in summary:
             pair, tf_label = parse_filename(path)
             if best is None:
                 print(f"{pair} Timeframe {tf_label}: (data tidak cukup untuk uji)")
@@ -314,7 +487,13 @@ def main():
                 print(f"{pair} Timeframe {tf_label}: EMA {best['fast']}/{best['slow']}  "
                       f"| Return {best['total_return_pct']:.2f}%  | MaxDD {best['max_dd_pct']:.2f}%  | B&H {bh:.2f}%")
 
+    if detail_mode:
+        readme_path = write_readme(summary)
+        msg = f"\nREADME.md diperbarui: {os.path.abspath(readme_path)}"
+        console.print(f"[bold green]{msg}[/bold green]") if HAS_RICH else print(msg)
+
 if __name__ == "__main__":
     main()
+
 
 
