@@ -1,54 +1,102 @@
 #!/usr/bin/env python3
 """
-fetch_sync.py -- Unduh & sinkronisasi data historis OHLCV dari Binance SPOT API.
+fetch.py -- Unduh & sinkronisasi data historis OHLCV.
 
-CATATAN: versi ini memakai endpoint SPOT (api.binance.com), BUKAN Futures.
-Dipakai untuk riset teknikal murni (misal pengujian EMA crossover) yang tidak
-terikat pada instrumen Futures tertentu -- Spot punya histori jauh lebih panjang
-untuk banyak aset (BTC Spot listing 2017, sementara BTC Futures baru 2019) dan
-tidak mengandung distorsi funding rate/leverage yang ada di kontrak Futures.
+Mendukung DUA sumber data:
+  1. Binance Spot API (api.binance.com)   -- untuk semua pair *USDT/*BUSD dsb.
+  2. Kraken Public API (api.kraken.com)   -- KHUSUS pair XMR (Monero, di-delisting
+     dari Binance Februari 2024, sehingga tidak tersedia di Binance sama sekali).
 
-Menggabungkan:
-- Fleksibilitas fetch_klines.py: flag --pair / --timeframe untuk aset & interval apapun.
-- Pola incremental sync sim.py: jika file lokal sudah ada, hanya mengunduh candle BARU
-  sejak candle terakhir tersimpan (seperti sync blockchain) -- bukan unduh ulang dari nol.
+MODE PENGGUNAAN:
+
+  1) Sync SEMUA file .csv yang sudah ada di direktori ini sekaligus (default,
+     tanpa argumen apapun). Script mengenali sumber data tiap file secara
+     otomatis dari namanya (pair XMR -> Kraken, selain itu -> Binance Spot):
+
+       python3 fetch.py
+
+  2) Unduh/sync SATU pair + timeframe spesifik (perilaku lama, tetap sama):
+
+       python3 fetch.py --pair BTCUSDT --timeframe 1d
+       python3 fetch.py -p ETHUSDT -tf 4h
+       python3 fetch.py -p XMRUSD -tf 1d          # otomatis pakai Kraken
+       python3 fetch.py -p BTCUSDT -tf 1d --resync  # paksa unduh ulang penuh
+
+  3) Bantuan:
+
+       python3 fetch.py --help
+
+CATATAN SUMBER DATA:
+- Binance Spot: histori panjang (BTC sejak 2017), tanpa distorsi funding rate/
+  leverage seperti kontrak Futures. Pagination penuh, unlimited ke belakang.
+- Kraken (khusus XMR): endpoint OHLC Kraken HANYA PERNAH mengembalikan maksimal
+  720 candle TERBARU, apapun parameter yang dikirim -- ini batasan resmi Kraken,
+  bukan bug di script ini. Sync di sini bermakna: setiap dijalankan, ambil
+  snapshot 720 candle terbaru lalu GABUNGKAN dengan data lokal (candle lama
+  tidak hilang, hanya candle baru yang ditambahkan). Menjalankan script ini
+  rutin dari waktu ke waktu akan mengakumulasi histori lebih panjang dari
+  720 hari, karena tiap hari ada 1 candle baru yang "terkunci" secara lokal
+  sebelum keluar dari jendela 720 hari milik Kraken.
 
 TANPA library eksternal (hanya urllib bawaan Python) -- kompatibel Termux standar.
 
-Penggunaan:
-    python3 fetch_sync.py --pair BTCUSDT --timeframe 1d
-    python3 fetch_sync.py -p ETHUSDT -tf 4h
-    python3 fetch_sync.py -p SOLUSDT -tf 1h
-    python3 fetch_sync.py -p BTCUSDT -tf 1d --resync   # paksa unduh ulang penuh dari listing awal
+Nama file output otomatis:
+    Binance : <pair_lowercase>_<timeframe>.csv          (mis. btcusdt_1d.csv)
+    Kraken  : <pair_lowercase>_<timeframe>_kraken.csv    (mis. xmrusd_1d_kraken.csv)
 
-Nama file output otomatis: <pair_lowercase>_<timeframe>.csv
-Interval valid (sama seperti Binance): 1m,3m,5m,15m,30m,1h,2h,4h,6h,8h,12h,1d,3d,1w,1M
+Interval valid Binance : 1m,3m,5m,15m,30m,1h,2h,4h,6h,8h,12h,1d,3d,1w,1M
+Interval Kraken (XMR)  : hanya 1d yang didukung script ini saat ini.
 """
 
 import argparse
 import csv
 import json
 import os
+import re
 import sys
 import time
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone
 
-BASE_URL = "https://api.binance.com/api/v3/klines"  # Binance SPOT public endpoint, tanpa API key
-LIMIT = 1000  # maksimum per request di endpoint Spot (Futures maksimum 1500, Spot maksimum 1000)
-VALID_INTERVALS = ["1m","3m","5m","15m","30m","1h","2h","4h","6h","8h","12h","1d","3d","1w","1M"]
+# ---------------------------------------------------------------------------
+# Konfigurasi umum
+# ---------------------------------------------------------------------------
+
+BINANCE_BASE_URL = "https://api.binance.com/api/v3/klines"
+BINANCE_LIMIT = 1000
+VALID_INTERVALS = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h",
+                    "12h", "1d", "3d", "1w", "1M"]
+
+KRAKEN_BASE_URL = "https://api.kraken.com/0/public/OHLC"
+KRAKEN_INTERVAL_MAP = {"1d": 1440}  # baru dukung daily untuk saat ini
 
 FIELDNAMES = ["open_time", "open", "high", "low", "close", "close_time", "is_closed"]
+
+# Pair yang HARUS lewat Kraken karena sudah di-delisting dari Binance
+KRAKEN_ONLY_PAIRS = {"XMRUSD", "XMRUSDT"}
 
 
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
 
-def fetch_klines_batch(symbol, interval, start_time_ms):
-    """Satu request ke Binance Spot klines endpoint."""
-    url = f"{BASE_URL}?symbol={symbol}&interval={interval}&limit={LIMIT}&startTime={start_time_ms}"
+def die(msg, parser=None):
+    """Cetak pesan error yang rapi + petunjuk --help, lalu keluar (bukan traceback Python)."""
+    print(f"ERROR: {msg}\n", file=sys.stderr)
+    if parser is not None:
+        parser.print_help(sys.stderr)
+    else:
+        print("Jalankan 'python3 fetch.py --help' untuk melihat cara pakai.", file=sys.stderr)
+    sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# Sumber data: Binance Spot
+# ---------------------------------------------------------------------------
+
+def binance_fetch_batch(symbol, interval, start_time_ms):
+    url = f"{BINANCE_BASE_URL}?symbol={symbol}&interval={interval}&limit={BINANCE_LIMIT}&startTime={start_time_ms}"
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
@@ -56,28 +104,26 @@ def fetch_klines_batch(symbol, interval, start_time_ms):
     except urllib.error.HTTPError as e:
         body = e.read().decode(errors="ignore")
         log(f"ERROR HTTP {e.code} dari Binance: {body}")
-        sys.exit(1)
+        return None
     except urllib.error.URLError as e:
-        log(f"ERROR koneksi: {e}")
-        sys.exit(1)
+        log(f"ERROR koneksi ke Binance: {e}")
+        return None
 
 
-def fetch_klines_full(symbol, interval, start_time_ms):
-    """
-    Pagination penuh mulai dari start_time_ms sampai waktu sekarang.
-    Berhenti hanya ketika batch kosong ATAU candle terakhir batch sudah >= sekarang,
-    supaya tidak berhenti prematur akibat batch parsial di tengah histori (pola sim.py).
-    """
+def binance_fetch_full(symbol, interval, start_time_ms):
     all_klines = []
     now_ms = int(time.time() * 1000)
     effective_start = start_time_ms
 
     while True:
-        batch = fetch_klines_batch(symbol, interval, effective_start)
+        batch = binance_fetch_batch(symbol, interval, effective_start)
+
+        if batch is None:
+            return None  # error jaringan/HTTP, sudah dilog di fungsi batch
 
         if isinstance(batch, dict) and "code" in batch:
             log(f"ERROR dari Binance API: {batch}")
-            sys.exit(1)
+            return None
 
         if not batch:
             break
@@ -89,19 +135,18 @@ def fetch_klines_full(symbol, interval, start_time_ms):
             f"total sejauh ini: {len(all_klines)}")
 
         if last_open_time <= effective_start and len(batch) <= 1:
-            break  # pengaman anti infinite-loop
+            break
 
         if last_open_time >= now_ms:
             break
 
         effective_start = last_open_time + 1
-        time.sleep(0.25)  # jaga rate limit
+        time.sleep(0.25)
 
     return all_klines
 
 
-def klines_to_rows(klines):
-    """Convert raw kline array -> dict rows, tandai is_closed berdasarkan close_time < sekarang."""
+def binance_klines_to_rows(klines):
     now_ms = int(time.time() * 1000)
     rows = []
     for k in klines:
@@ -118,8 +163,149 @@ def klines_to_rows(klines):
     return rows
 
 
+def sync_binance(pair, interval, output_file):
+    """Sync satu pair Binance Spot (logic identik dengan versi fetch.py sebelumnya)."""
+    existing = load_local_data(output_file)
+
+    if not existing:
+        log(f"Data lokal belum ada untuk {pair} [{interval}]. Mengunduh seluruh histori dari Binance Spot...")
+        klines = binance_fetch_full(pair, interval, start_time_ms=0)
+        if klines is None:
+            log(f"GAGAL mengunduh {pair} [{interval}] -- dilewati.")
+            return None
+        rows = binance_klines_to_rows(klines)
+        rows = [r for r in rows if r["is_closed"]]
+        save_local_data(output_file, rows)
+        log(f"Selesai. Total {len(rows)} candle baru tersimpan di {output_file}")
+        return rows
+
+    last_stored = existing[-1]
+    start_ms = last_stored["open_time"]
+
+    log(f"Data lokal ditemukan ({len(existing)} candle, {output_file}).")
+    log(f"Sinkronisasi: mengecek candle baru sejak "
+        f"{datetime.fromtimestamp(start_ms/1000, tz=timezone.utc).strftime('%Y-%m-%d %H:%M')}...")
+
+    klines = binance_fetch_full(pair, interval, start_time_ms=start_ms)
+    if klines is None:
+        log(f"GAGAL sync {pair} [{interval}] -- data lokal lama tetap dipakai, dilewati.")
+        return existing
+
+    new_rows = binance_klines_to_rows(klines)
+    new_rows = [r for r in new_rows if r["is_closed"]]
+
+    merged = {r["open_time"]: r for r in existing[:-1]}
+    for r in new_rows:
+        merged[r["open_time"]] = r
+    if last_stored["open_time"] not in merged:
+        merged[last_stored["open_time"]] = last_stored
+
+    final_rows = sorted(merged.values(), key=lambda x: x["open_time"])
+    added = len(final_rows) - len(existing)
+
+    save_local_data(output_file, final_rows)
+    log(f"Selesai. {added} candle baru ditambahkan. Total sekarang: {len(final_rows)} candle di {output_file}")
+    return final_rows
+
+
+# ---------------------------------------------------------------------------
+# Sumber data: Kraken (khusus XMR)
+# ---------------------------------------------------------------------------
+
+def kraken_fetch_ohlc(pair, kraken_interval):
+    url = f"{KRAKEN_BASE_URL}?pair={pair}&interval={kraken_interval}"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(url_req_or_req(req), timeout=15) as resp:
+            return json.loads(resp.read().decode())
+    except Exception as e:
+        log(f"ERROR koneksi ke Kraken: {e}")
+        return None
+
+
+def url_req_or_req(req):
+    # helper kecil supaya mudah diuji/mock -- tidak mengubah perilaku
+    return req
+
+
+def sync_kraken(pair, interval, output_file):
+    """
+    Sync khusus XMR dari Kraken. interval hanya mendukung '1d' untuk saat ini.
+    Selalu mengambil snapshot 720 candle terbaru & merge dengan file lokal (lihat
+    penjelasan lengkap di docstring atas file).
+    """
+    if interval not in KRAKEN_INTERVAL_MAP:
+        log(f"ERROR: timeframe '{interval}' belum didukung untuk Kraken/XMR. "
+            f"Yang didukung saat ini: {', '.join(KRAKEN_INTERVAL_MAP.keys())}")
+        return None
+
+    kraken_interval = KRAKEN_INTERVAL_MAP[interval]
+    existing_list = load_local_data(output_file)
+    existing = {r["open_time"]: r for r in existing_list}
+    is_first_run = len(existing) == 0
+
+    if is_first_run:
+        log(f"Data lokal belum ada untuk {pair} [{interval}] (Kraken). Unduhan pertama.")
+    else:
+        oldest = min(existing.keys())
+        newest = max(existing.keys())
+        log(f"Data lokal ditemukan: {len(existing)} candle tersimpan di {output_file}.")
+        log(f"  Rentang tersimpan saat ini: {time.strftime('%Y-%m-%d', time.gmtime(oldest/1000))} "
+            f"s/d {time.strftime('%Y-%m-%d', time.gmtime(newest/1000))}")
+
+    log(f"Mengambil snapshot {720} candle terbaru {pair} dari Kraken...")
+    data = kraken_fetch_ohlc(pair, kraken_interval)
+    if data is None:
+        log(f"GAGAL mengambil data {pair} dari Kraken -- dilewati.")
+        return existing_list if existing_list else None
+
+    if data.get("error"):
+        log(f"Error dari Kraken: {data['error']}")
+        return existing_list if existing_list else None
+
+    result = data.get("result", {})
+    pair_key = [k for k in result.keys() if k != "last"]
+    if not pair_key:
+        log("Tidak ada data ditemukan dari Kraken. Kemungkinan nama pair salah.")
+        return existing_list if existing_list else None
+
+    ohlc_raw = result[pair_key[0]]
+    fetched_count = len(ohlc_raw)
+    new_count = 0
+
+    for entry in ohlc_raw:
+        ts, o, h, l, c, vwap, vol, count = entry
+        open_time = int(ts) * 1000
+        close_time = open_time + (kraken_interval * 60 * 1000) - 1
+
+        if open_time not in existing:
+            new_count += 1
+
+        existing[open_time] = {
+            "open_time": open_time,
+            "open": o, "high": h, "low": l, "close": c,
+            "close_time": close_time,
+            "is_closed": True,
+        }
+
+    final_rows = sorted(existing.values(), key=lambda x: x["open_time"])
+    save_local_data(output_file, final_rows)
+
+    log(f"Snapshot Kraken: {fetched_count} candle diterima, {new_count} di antaranya baru.")
+    log(f"Selesai. Total sekarang: {len(final_rows)} candle di {output_file}")
+
+    if is_first_run:
+        log("Catatan: unduhan pertama dari Kraken dibatasi jendela 720 hari terakhir. "
+            "Jalankan ulang script ini secara rutin agar histori lokal terus terakumulasi.")
+
+    return final_rows
+
+
+# ---------------------------------------------------------------------------
+# Penyimpanan lokal (format sama untuk kedua sumber data)
+# ---------------------------------------------------------------------------
+
 def load_local_data(path):
-    """Load data lokal jika sudah ada. Return list of dict, sorted by open_time. [] jika belum ada file."""
     if not os.path.exists(path):
         return []
     rows = []
@@ -140,7 +326,7 @@ def load_local_data(path):
 
 
 def save_local_data(path, rows):
-    rows.sort(key=lambda x: x["open_time"])
+    rows = sorted(rows, key=lambda x: x["open_time"])
     with open(path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
         writer.writeheader()
@@ -148,84 +334,213 @@ def save_local_data(path, rows):
             writer.writerow(r)
 
 
-def sync_data(pair, interval, output_file):
+# ---------------------------------------------------------------------------
+# Deteksi sumber data & parsing nama file (untuk mode sync-all)
+# ---------------------------------------------------------------------------
+
+def is_kraken_filename(filename):
+    """File hasil Kraken selalu diberi akhiran _kraken.csv oleh script ini."""
+    return filename.lower().endswith("_kraken.csv")
+
+
+def parse_existing_filename(filename):
     """
-    Sinkronisasi data lokal ala 'sync blockchain':
-    - Jika file belum ada -> unduh penuh dari awal listing (startTime=0).
-    - Jika file sudah ada -> unduh HANYA candle baru sejak candle terakhir tersimpan,
-      lalu gabungkan (replace candle terakhir yang mungkin belum closed saat sync sebelumnya).
+    Tebak (pair, timeframe, source) dari nama file yang sudah ada di direktori.
+    Pola yang didukung:
+        <pair>_<timeframe>.csv            -> Binance
+        <pair>_<timeframe>_kraken.csv     -> Kraken
+    Contoh: btcusdt_1d.csv -> ('BTCUSDT', '1d', 'binance')
+            xmrusd_1d_kraken.csv -> ('XMRUSD', '1d', 'kraken')
+    Return None jika pola tidak dikenali (file diabaikan saat sync-all).
     """
-    existing = load_local_data(output_file)
+    base = re.sub(r'\.csv$', '', filename, flags=re.IGNORECASE)
 
-    if not existing:
-        log(f"Data lokal belum ada untuk {pair} [{interval}]. Mengunduh seluruh histori dari Binance Spot...")
-        klines = fetch_klines_full(pair, interval, start_time_ms=0)
-        rows = klines_to_rows(klines)
-        rows = [r for r in rows if r["is_closed"]]  # hanya simpan candle yang sudah closed
-        save_local_data(output_file, rows)
-        log(f"Selesai. Total {len(rows)} candle baru tersimpan di {output_file}")
-        return rows
+    if is_kraken_filename(filename):
+        base_no_kraken = re.sub(r'_kraken$', '', base, flags=re.IGNORECASE)
+        parts = base_no_kraken.split('_')
+        if len(parts) < 2:
+            return None
+        pair = parts[0].upper()
+        timeframe = '_'.join(parts[1:])
+        # Normalisasi label lama seperti "daily" -> "1d"
+        timeframe = {"daily": "1d", "weekly": "1w", "monthly": "1M"}.get(timeframe.lower(), timeframe)
+        return pair, timeframe, "kraken"
 
-    last_stored = existing[-1]
-    start_ms = last_stored["open_time"]
+    parts = base.split('_')
+    if len(parts) < 2:
+        return None
+    pair = parts[0].upper()
+    timeframe = '_'.join(parts[1:])
+    timeframe = {"daily": "1d", "weekly": "1w", "monthly": "1M"}.get(timeframe.lower(), timeframe)
 
-    log(f"Data lokal ditemukan ({len(existing)} candle, {output_file}).")
-    log(f"Sinkronisasi: mengecek candle baru sejak "
-        f"{datetime.fromtimestamp(start_ms/1000, tz=timezone.utc).strftime('%Y-%m-%d %H:%M')}...")
+    if timeframe not in VALID_INTERVALS:
+        return None  # nama file tidak mengikuti pola yang kita kenali, aman untuk diabaikan
 
-    klines = fetch_klines_full(pair, interval, start_time_ms=start_ms)
-    new_rows = klines_to_rows(klines)
-    new_rows = [r for r in new_rows if r["is_closed"]]
-
-    # Merge: candle terakhir lama di-refresh (jaga-jaga waktu sync sebelumnya belum closed), sisanya ditambahkan
-    merged = {r["open_time"]: r for r in existing[:-1]}
-    for r in new_rows:
-        merged[r["open_time"]] = r
-    # Pastikan candle terakhir lama tetap ada kalau tidak ter-refresh oleh new_rows
-    if last_stored["open_time"] not in merged:
-        merged[last_stored["open_time"]] = last_stored
-
-    final_rows = sorted(merged.values(), key=lambda x: x["open_time"])
-    added = len(final_rows) - len(existing)
-
-    save_local_data(output_file, final_rows)
-    log(f"Selesai. {added} candle baru ditambahkan. Total sekarang: {len(final_rows)} candle di {output_file}")
-    return final_rows
+    return pair, timeframe, "binance"
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Unduh & sinkronisasi data historis OHLCV dari Binance Spot (incremental, tanpa API key)."
-    )
-    parser.add_argument("-p", "--pair", type=str, required=True,
-                         help="Nama pair, contoh: BTCUSDT, ETHUSDT, SOLUSDT")
-    parser.add_argument("-tf", "--timeframe", type=str, required=True,
-                         help=f"Interval candle. Pilihan: {', '.join(VALID_INTERVALS)}")
-    parser.add_argument("--resync", action="store_true",
-                         help="Paksa unduh ulang PENUH dari listing paling awal, menimpa file lokal yang ada. "
-                              "Gunakan ini jika curiga data lokal tidak lengkap dari awal listing.")
-    args = parser.parse_args()
+def find_existing_csv_files():
+    return sorted([f for f in os.listdir(".") if f.lower().endswith(".csv")])
 
-    pair = args.pair.upper()
-    interval = args.timeframe.lower() if args.timeframe.lower() != "1m".upper() else args.timeframe
-    interval = args.timeframe
-    if interval not in VALID_INTERVALS:
-        log(f"ERROR: timeframe '{interval}' tidak valid. Pilihan: {', '.join(VALID_INTERVALS)}")
-        sys.exit(1)
 
-    output_file = f"{pair.lower()}_{interval}.csv"
+def determine_source(pair):
+    """Tentukan sumber data yang harus dipakai untuk sebuah pair."""
+    return "kraken" if pair.upper() in KRAKEN_ONLY_PAIRS else "binance"
 
-    if args.resync and os.path.exists(output_file):
-        log(f"--resync aktif: menghapus data lokal lama {output_file} dan mengunduh penuh dari awal listing...")
+
+def output_filename(pair, timeframe, source):
+    if source == "kraken":
+        return f"{pair.lower()}_{timeframe}_kraken.csv"
+    return f"{pair.lower()}_{timeframe}.csv"
+
+
+# ---------------------------------------------------------------------------
+# Mode: sync satu pair spesifik
+# ---------------------------------------------------------------------------
+
+def run_single(pair, timeframe, resync, parser):
+    pair = pair.upper()
+
+    if timeframe not in VALID_INTERVALS and not (pair in KRAKEN_ONLY_PAIRS and timeframe in KRAKEN_INTERVAL_MAP):
+        die(f"timeframe '{timeframe}' tidak valid. Pilihan: {', '.join(VALID_INTERVALS)}", parser)
+
+    source = determine_source(pair)
+    output_file = output_filename(pair, timeframe, source)
+
+    if resync and os.path.exists(output_file):
+        log(f"--resync aktif: menghapus data lokal lama {output_file} dan mengunduh penuh dari awal...")
         os.remove(output_file)
 
-    log(f"Target: pair={pair} | timeframe={interval} | file={output_file}")
-    rows = sync_data(pair, interval, output_file)
+    log(f"Target: pair={pair} | timeframe={timeframe} | sumber={source} | file={output_file}")
+
+    if source == "kraken":
+        rows = sync_kraken(pair, timeframe, output_file)
+    else:
+        rows = sync_binance(pair, timeframe, output_file)
 
     if rows:
         start_label = datetime.fromtimestamp(rows[0]["open_time"]/1000, tz=timezone.utc).strftime("%Y-%m-%d")
         end_label = datetime.fromtimestamp(rows[-1]["open_time"]/1000, tz=timezone.utc).strftime("%Y-%m-%d")
         log(f"Rentang data tersimpan: {start_label} s/d {end_label} ({len(rows)} candle)")
+    else:
+        log(f"Tidak ada data tersimpan untuk {pair} [{timeframe}].")
+
+
+# ---------------------------------------------------------------------------
+# Mode: sync semua file .csv yang sudah ada (default, tanpa argumen)
+# ---------------------------------------------------------------------------
+
+def run_sync_all():
+    files = find_existing_csv_files()
+
+    if not files:
+        log("Tidak ada file .csv ditemukan di direktori ini.")
+        log("Untuk mengunduh data baru, gunakan: python3 fetch.py --pair <PAIR> --timeframe <TF>")
+        log("Jalankan 'python3 fetch.py --help' untuk info lengkap.")
+        return
+
+    jobs = []
+    skipped = []
+    for f in files:
+        parsed = parse_existing_filename(f)
+        if parsed is None:
+            skipped.append(f)
+            continue
+        jobs.append((f, *parsed))  # (filename, pair, timeframe, source)
+
+    log(f"Ditemukan {len(files)} file .csv, {len(jobs)} di antaranya dikenali untuk sync otomatis.")
+    if skipped:
+        log(f"Dilewati (nama file tidak dikenali polanya): {', '.join(skipped)}")
+
+    if not jobs:
+        log("Tidak ada file yang polanya dikenali. Tidak ada yang disinkronkan.")
+        return
+
+    print()
+    ok_count = 0
+    fail_count = 0
+
+    for i, (filename, pair, timeframe, source) in enumerate(jobs, 1):
+        log(f"[{i}/{len(jobs)}] Sync {pair} [{timeframe}] via {source} -> {filename}")
+        try:
+            if source == "kraken":
+                rows = sync_kraken(pair, timeframe, filename)
+            else:
+                rows = sync_binance(pair, timeframe, filename)
+            if rows:
+                ok_count += 1
+            else:
+                fail_count += 1
+        except Exception as e:
+            log(f"GAGAL sync {filename}: {e}")
+            fail_count += 1
+        print()
+
+    log(f"Sync-all selesai. Berhasil: {ok_count} | Gagal/dilewati: {fail_count} | Total: {len(jobs)}")
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+def build_parser():
+    parser = argparse.ArgumentParser(
+        prog="fetch.py",
+        description=(
+            "Unduh & sinkronisasi data historis OHLCV dari Binance Spot dan Kraken "
+            "(khusus XMR), tanpa API key."
+        ),
+        epilog=(
+            "Tanpa argumen sama sekali: sinkronkan SEMUA file .csv yang sudah ada "
+            "di direktori ini sekaligus.\n\n"
+            "Contoh:\n"
+            "  python3 fetch.py\n"
+            "  python3 fetch.py --pair BTCUSDT --timeframe 1d\n"
+            "  python3 fetch.py -p ETHUSDT -tf 4h\n"
+            "  python3 fetch.py -p XMRUSD -tf 1d\n"
+            "  python3 fetch.py -p BTCUSDT -tf 1d --resync"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("-p", "--pair", type=str, default=None,
+                         help="Nama pair, contoh: BTCUSDT, ETHUSDT, SOLUSDT, XMRUSD. "
+                              "Wajib diisi bersama --timeframe jika ingin sync satu pair spesifik.")
+    parser.add_argument("-tf", "--timeframe", type=str, default=None,
+                         help=f"Interval candle. Pilihan Binance: {', '.join(VALID_INTERVALS)}. "
+                              f"Untuk XMR/Kraken saat ini hanya didukung: {', '.join(KRAKEN_INTERVAL_MAP.keys())}")
+    parser.add_argument("--resync", action="store_true",
+                         help="Paksa unduh ulang PENUH dari awal, menimpa file lokal yang ada. "
+                              "Hanya berlaku saat --pair & --timeframe diisi (mode satu pair).")
+    return parser
+
+
+def main():
+    parser = build_parser()
+
+    # argparse akan otomatis menangani -h/--help dan keluar dengan pesan rapi.
+    # Kita tangkap error parsing argumen (mis. flag tidak dikenal) supaya tidak
+    # menampilkan traceback Python mentah ke pengguna.
+    try:
+        args = parser.parse_args()
+    except SystemExit as e:
+        # argparse sendiri sudah mencetak pesan usage yang rapi untuk -h/--help
+        # maupun untuk argumen tidak valid; cukup teruskan exit code-nya.
+        raise
+
+    pair_given = args.pair is not None
+    tf_given = args.timeframe is not None
+
+    if not pair_given and not tf_given:
+        # Mode default: sync semua file yang sudah ada
+        run_sync_all()
+        return
+
+    if pair_given != tf_given:
+        die("--pair dan --timeframe harus diisi BERSAMA-SAMA untuk sync satu pair spesifik. "
+            "Atau jalankan tanpa argumen sama sekali untuk sync semua file .csv yang ada.",
+            parser)
+
+    run_single(args.pair, args.timeframe, args.resync, parser)
 
 
 if __name__ == "__main__":
