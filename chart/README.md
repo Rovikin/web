@@ -26,17 +26,23 @@ setiap kali script dijalankan dengan flag `--detail`.
 | Pair | Timeframe | Total Candle | EMA Terbaik | Return | Max DD | Buy & Hold | vs B&H | Sinyal Terakhir |
 |---|---|---|---|---|---|---|---|---|
 | **ADAUSDT** | 1 Day | 3002 | `15/40` | +9390.82% | -34.42% | -21.89% | ✅ Menang | 🔴 **45 hari lalu** (SELL, menunggu sinyal beli) |
+| **AVAXUSDT** | 1 Day | 2113 | `15/75` | +3356.67% | -33.05% | +30.17% | ✅ Menang | 🔴 **51 hari lalu** (SELL, menunggu sinyal beli) |
 | **BCHUSDT** | 1 Day | 2412 | `25/75` | +200.06% | -55.10% | +12.41% | ✅ Menang | 🔴 **153 hari lalu** (SELL, menunggu sinyal beli) |
 | **BNBUSDT** | 1 Day | 3164 | `10/26` | +30822.68% | -31.91% | +37447.42% | ❌ Kalah | 🔴 **31 hari lalu** (SELL, menunggu sinyal beli) |
 | **BTCUSDT** | 1 Day | 3245 | `10/30` | +6804.41% | -52.55% | +1385.39% | ✅ Menang | 🔴 **44 hari lalu** (SELL, menunggu sinyal beli) |
 | **DOGEUSDT** | 1 Day | 2558 | `15/26` | +18176.70% | -56.62% | +1912.09% | ✅ Menang | 🔴 **40 hari lalu** (SELL, menunggu sinyal beli) |
 | **ETHUSDT** | 1 Day | 3245 | `10/20` | +7186.33% | -46.34% | +491.27% | ✅ Menang | 🟢 **0 hari lalu** (BUY, masih holding) |
+| **HBARUSDT** | 1 Day | 2472 | `12/30` | +5226.36% | -34.93% | +114.62% | ✅ Menang | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
 | **LINKUSDT** | 1 Day | 2728 | `5/100` | +1614.49% | -71.67% | +1547.19% | ✅ Menang | 🔴 **48 hari lalu** (SELL, menunggu sinyal beli) |
+| **LTCUSDT** | 1 Day | 3127 | `15/40` | +209.25% | -56.14% | -84.20% | ✅ Menang | 🔴 **46 hari lalu** (SELL, menunggu sinyal beli) |
+| **NEARUSDT** | 1 Day | 2091 | `5/20` | +1217.28% | -67.00% | +72.61% | ✅ Menang | 🔴 **14 hari lalu** (SELL, menunggu sinyal beli) |
 | **PAXGUSDT** | 1 Day | 2138 | `20/150` | +130.22% | -8.78% | +111.31% | ✅ Menang | 🔴 **49 hari lalu** (SELL, menunggu sinyal beli) |
 | **SOLUSDT** | 1 Day | 2155 | `9/26` | +19464.06% | -44.22% | +2373.55% | ✅ Menang | 🟢 **4 hari lalu** (BUY, masih holding) |
+| **SUIUSDT** | 1 Day | 1160 | `5/50` | +646.47% | -51.10% | -46.01% | ✅ Menang | 🔴 **39 hari lalu** (SELL, menunggu sinyal beli) |
 | **TRXUSDT** | 1 Day | 2947 | `12/30` | +1222.82% | -43.96% | +580.17% | ✅ Menang | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+| **UNIUSDT** | 1 Day | 2118 | `25/26` | +1282.65% | -35.67% | -8.25% | ✅ Menang | 🟢 **0 hari lalu** (BUY, masih holding) |
 | **XLMUSDT** | 1 Day | 2958 | `5/30` | +418.52% | -62.23% | -31.21% | ✅ Menang | 🟢 **2 hari lalu** (BUY, masih holding) |
-| **XMRUSD** | 1 Day | 723 | `12/20` | +167.80% | -10.63% | +104.30% | ✅ Menang | 🔴 **41 hari lalu** (SELL, menunggu sinyal beli) |
+| **XMRUSD** | 1 Day | 723 | `12/20` | +167.80% | -10.63% | +99.12% | ✅ Menang | 🔴 **41 hari lalu** (SELL, menunggu sinyal beli) |
 | **XRPUSDT** | 1 Day | 2985 | `9/200` | +99.26% | -50.56% | +30.04% | ✅ Menang | 🔴 **264 hari lalu** (SELL, menunggu sinyal beli) |
 | **ZECUSDT** | 1 Day | 2664 | `5/26` | +5612.39% | -75.56% | +738.28% | ✅ Menang | 🟢 **0 hari lalu** (BUY, masih holding) |
 
@@ -79,6 +85,44 @@ setiap kali script dijalankan dengan flag `--detail`.
 | 25 | 40 | 20 | 50.0% | +6346.56% | -41.09% | 154.45 | 🔴 **45 hari lalu** (SELL, menunggu sinyal beli) |
 | 25 | 30 | 23 | 39.1% | +6464.02% | -42.21% | 153.15 | 🔴 **44 hari lalu** (SELL, menunggu sinyal beli) |
 | 8 | 50 | 33 | 36.4% | +5800.66% | -39.13% | 148.24 | 🔴 **48 hari lalu** (SELL, menunggu sinyal beli) |
+
+### AVAXUSDT (1 Day)
+
+- **File sumber:** `avaxusdt_1d.csv`
+- **Total candle:** 2113
+- **Buy & Hold:** +30.17%
+- **Rekomendasi (return tertinggi):** EMA `15/75` → Return +3356.67%, MaxDD -33.05%
+- **Sinyal terakhir pada kombinasi ini:** 🔴 **51 hari lalu** (SELL, menunggu sinyal beli)
+
+**Top 10 berdasarkan Total Return**
+
+| Fast | Slow | Trades | Win Rate | Return | Max DD | Calmar | Sinyal Terakhir |
+|---|---|---|---|---|---|---|---|
+| 15 | 75 | 13 | 38.5% | +3356.67% | -33.05% | 101.58 | 🔴 **51 hari lalu** (SELL, menunggu sinyal beli) |
+| 9 | 100 | 15 | 26.7% | +2538.89% | -43.16% | 58.83 | 🔴 **266 hari lalu** (SELL, menunggu sinyal beli) |
+| 5 | 20 | 52 | 23.1% | +2422.62% | -59.69% | 40.59 | 🟢 **2 hari lalu** (BUY, masih holding) |
+| 10 | 100 | 14 | 28.6% | +2363.80% | -41.18% | 57.40 | 🔴 **266 hari lalu** (SELL, menunggu sinyal beli) |
+| 12 | 75 | 14 | 28.6% | +2309.05% | -42.99% | 53.71 | 🔴 **50 hari lalu** (SELL, menunggu sinyal beli) |
+| 12 | 20 | 37 | 29.7% | +2145.24% | -63.60% | 33.73 | 🔴 **47 hari lalu** (SELL, menunggu sinyal beli) |
+| 8 | 20 | 46 | 23.9% | +2022.68% | -56.12% | 36.04 | 🟢 **1 hari lalu** (BUY, masih holding) |
+| 20 | 50 | 15 | 33.3% | +2017.64% | -42.82% | 47.12 | 🔴 **44 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 20 | 41 | 29.3% | +1997.69% | -62.73% | 31.85 | 🔴 **48 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 26 | 33 | 30.3% | +1977.83% | -66.26% | 29.85 | 🔴 **47 hari lalu** (SELL, menunggu sinyal beli) |
+
+**Top 10 berdasarkan Calmar (risk-adjusted)**
+
+| Fast | Slow | Trades | Win Rate | Return | Max DD | Calmar | Sinyal Terakhir |
+|---|---|---|---|---|---|---|---|
+| 15 | 75 | 13 | 38.5% | +3356.67% | -33.05% | 101.58 | 🔴 **51 hari lalu** (SELL, menunggu sinyal beli) |
+| 20 | 75 | 10 | 40.0% | +1857.34% | -29.37% | 63.24 | 🔴 **263 hari lalu** (SELL, menunggu sinyal beli) |
+| 9 | 100 | 15 | 26.7% | +2538.89% | -43.16% | 58.83 | 🔴 **266 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 100 | 14 | 28.6% | +2363.80% | -41.18% | 57.40 | 🔴 **266 hari lalu** (SELL, menunggu sinyal beli) |
+| 12 | 75 | 14 | 28.6% | +2309.05% | -42.99% | 53.71 | 🔴 **50 hari lalu** (SELL, menunggu sinyal beli) |
+| 20 | 50 | 15 | 33.3% | +2017.64% | -42.82% | 47.12 | 🔴 **44 hari lalu** (SELL, menunggu sinyal beli) |
+| 12 | 100 | 13 | 30.8% | +1540.88% | -36.86% | 41.80 | 🔴 **264 hari lalu** (SELL, menunggu sinyal beli) |
+| 5 | 20 | 52 | 23.1% | +2422.62% | -59.69% | 40.59 | 🟢 **2 hari lalu** (BUY, masih holding) |
+| 8 | 100 | 17 | 23.5% | +1687.99% | -43.06% | 39.20 | 🔴 **267 hari lalu** (SELL, menunggu sinyal beli) |
+| 25 | 75 | 10 | 40.0% | +1252.96% | -32.01% | 39.14 | 🔴 **261 hari lalu** (SELL, menunggu sinyal beli) |
 
 ### BCHUSDT (1 Day)
 
@@ -270,6 +314,44 @@ setiap kali script dijalankan dengan flag `--detail`.
 | 15 | 30 | 36 | 44.4% | +4523.11% | -39.14% | 115.56 | 🔴 **49 hari lalu** (SELL, menunggu sinyal beli) |
 | 25 | 50 | 22 | 40.9% | +4329.65% | -40.37% | 107.26 | 🔴 **47 hari lalu** (SELL, menunggu sinyal beli) |
 
+### HBARUSDT (1 Day)
+
+- **File sumber:** `hbarusdt_1d.csv`
+- **Total candle:** 2472
+- **Buy & Hold:** +114.62%
+- **Rekomendasi (return tertinggi):** EMA `12/30` → Return +5226.36%, MaxDD -34.93%
+- **Sinyal terakhir pada kombinasi ini:** 🔴 **32 hari lalu** (SELL, menunggu sinyal beli)
+
+**Top 10 berdasarkan Total Return**
+
+| Fast | Slow | Trades | Win Rate | Return | Max DD | Calmar | Sinyal Terakhir |
+|---|---|---|---|---|---|---|---|
+| 12 | 30 | 31 | 35.5% | +5226.36% | -34.93% | 149.63 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 20 | 42 | 28.6% | +4521.47% | -51.31% | 88.12 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+| 12 | 75 | 17 | 52.9% | +3847.93% | -35.20% | 109.30 | 🔴 **283 hari lalu** (SELL, menunggu sinyal beli) |
+| 12 | 26 | 39 | 28.2% | +3814.39% | -45.53% | 83.77 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 26 | 32 | 31.2% | +3490.14% | -43.71% | 79.85 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 40 | 30 | 36.7% | +3463.12% | -43.61% | 79.41 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 30 | 29 | 31.0% | +3451.76% | -43.71% | 78.97 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 75 | 18 | 50.0% | +3348.87% | -26.30% | 127.35 | 🔴 **283 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 30 | 37 | 29.7% | +3279.28% | -47.68% | 68.78 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 26 | 44 | 27.3% | +3122.83% | -52.86% | 59.07 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+
+**Top 10 berdasarkan Calmar (risk-adjusted)**
+
+| Fast | Slow | Trades | Win Rate | Return | Max DD | Calmar | Sinyal Terakhir |
+|---|---|---|---|---|---|---|---|
+| 12 | 30 | 31 | 35.5% | +5226.36% | -34.93% | 149.63 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 75 | 18 | 50.0% | +3348.87% | -26.30% | 127.35 | 🔴 **283 hari lalu** (SELL, menunggu sinyal beli) |
+| 12 | 75 | 17 | 52.9% | +3847.93% | -35.20% | 109.30 | 🔴 **283 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 20 | 42 | 28.6% | +4521.47% | -51.31% | 88.12 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+| 12 | 26 | 39 | 28.2% | +3814.39% | -45.53% | 83.77 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 26 | 32 | 31.2% | +3490.14% | -43.71% | 79.85 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 40 | 30 | 36.7% | +3463.12% | -43.61% | 79.41 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 30 | 29 | 31.0% | +3451.76% | -43.71% | 78.97 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+| 20 | 26 | 27 | 29.6% | +2636.06% | -36.47% | 72.28 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 30 | 37 | 29.7% | +3279.28% | -47.68% | 68.78 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+
 ### LINKUSDT (1 Day)
 
 - **File sumber:** `linkusdt_1d.csv`
@@ -307,6 +389,82 @@ setiap kali script dijalankan dengan flag `--detail`.
 | 5 | 20 | 88 | 33.0% | +1142.53% | -71.13% | 16.06 | 🟢 **1 hari lalu** (BUY, masih holding) |
 | 12 | 26 | 42 | 35.7% | +1187.78% | -74.26% | 16.00 | 🔴 **42 hari lalu** (SELL, menunggu sinyal beli) |
 | 15 | 20 | 44 | 36.4% | +1179.84% | -77.52% | 15.22 | 🔴 **42 hari lalu** (SELL, menunggu sinyal beli) |
+
+### LTCUSDT (1 Day)
+
+- **File sumber:** `ltcusdt_1d.csv`
+- **Total candle:** 3127
+- **Buy & Hold:** -84.20%
+- **Rekomendasi (return tertinggi):** EMA `15/40` → Return +209.25%, MaxDD -56.14%
+- **Sinyal terakhir pada kombinasi ini:** 🔴 **46 hari lalu** (SELL, menunggu sinyal beli)
+
+**Top 10 berdasarkan Total Return**
+
+| Fast | Slow | Trades | Win Rate | Return | Max DD | Calmar | Sinyal Terakhir |
+|---|---|---|---|---|---|---|---|
+| 15 | 40 | 33 | 36.4% | +209.25% | -56.14% | 3.73 | 🔴 **46 hari lalu** (SELL, menunggu sinyal beli) |
+| 9 | 50 | 39 | 25.6% | +190.20% | -65.68% | 2.90 | 🔴 **47 hari lalu** (SELL, menunggu sinyal beli) |
+| 12 | 50 | 32 | 31.2% | +179.18% | -49.50% | 3.62 | 🔴 **46 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 50 | 27 | 25.9% | +135.94% | -52.14% | 2.61 | 🔴 **46 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 50 | 39 | 25.6% | +134.28% | -62.38% | 2.15 | 🔴 **47 hari lalu** (SELL, menunggu sinyal beli) |
+| 9 | 40 | 43 | 32.6% | +130.87% | -61.04% | 2.14 | 🔴 **47 hari lalu** (SELL, menunggu sinyal beli) |
+| 25 | 75 | 16 | 37.5% | +128.12% | -61.27% | 2.09 | 🔴 **265 hari lalu** (SELL, menunggu sinyal beli) |
+| 20 | 75 | 19 | 31.6% | +122.96% | -61.82% | 1.99 | 🔴 **266 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 100 | 18 | 33.3% | +110.24% | -63.59% | 1.73 | 🔴 **265 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 75 | 24 | 29.2% | +108.64% | -58.21% | 1.87 | 🔴 **49 hari lalu** (SELL, menunggu sinyal beli) |
+
+**Top 10 berdasarkan Calmar (risk-adjusted)**
+
+| Fast | Slow | Trades | Win Rate | Return | Max DD | Calmar | Sinyal Terakhir |
+|---|---|---|---|---|---|---|---|
+| 15 | 40 | 33 | 36.4% | +209.25% | -56.14% | 3.73 | 🔴 **46 hari lalu** (SELL, menunggu sinyal beli) |
+| 12 | 50 | 32 | 31.2% | +179.18% | -49.50% | 3.62 | 🔴 **46 hari lalu** (SELL, menunggu sinyal beli) |
+| 9 | 50 | 39 | 25.6% | +190.20% | -65.68% | 2.90 | 🔴 **47 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 50 | 27 | 25.9% | +135.94% | -52.14% | 2.61 | 🔴 **46 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 50 | 39 | 25.6% | +134.28% | -62.38% | 2.15 | 🔴 **47 hari lalu** (SELL, menunggu sinyal beli) |
+| 9 | 40 | 43 | 32.6% | +130.87% | -61.04% | 2.14 | 🔴 **47 hari lalu** (SELL, menunggu sinyal beli) |
+| 25 | 75 | 16 | 37.5% | +128.12% | -61.27% | 2.09 | 🔴 **265 hari lalu** (SELL, menunggu sinyal beli) |
+| 20 | 75 | 19 | 31.6% | +122.96% | -61.82% | 1.99 | 🔴 **266 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 75 | 24 | 29.2% | +108.64% | -58.21% | 1.87 | 🔴 **49 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 100 | 18 | 33.3% | +110.24% | -63.59% | 1.73 | 🔴 **265 hari lalu** (SELL, menunggu sinyal beli) |
+
+### NEARUSDT (1 Day)
+
+- **File sumber:** `nearusdt_1d.csv`
+- **Total candle:** 2091
+- **Buy & Hold:** +72.61%
+- **Rekomendasi (return tertinggi):** EMA `5/20` → Return +1217.28%, MaxDD -67.00%
+- **Sinyal terakhir pada kombinasi ini:** 🔴 **14 hari lalu** (SELL, menunggu sinyal beli)
+
+**Top 10 berdasarkan Total Return**
+
+| Fast | Slow | Trades | Win Rate | Return | Max DD | Calmar | Sinyal Terakhir |
+|---|---|---|---|---|---|---|---|
+| 5 | 20 | 52 | 38.5% | +1217.28% | -67.00% | 18.17 | 🔴 **14 hari lalu** (SELL, menunggu sinyal beli) |
+| 5 | 26 | 47 | 34.0% | +1196.44% | -72.03% | 16.61 | 🔴 **13 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 26 | 27 | 25.9% | +981.09% | -78.71% | 12.46 | 🔴 **10 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 30 | 30 | 33.3% | +980.66% | -77.77% | 12.61 | 🔴 **11 hari lalu** (SELL, menunggu sinyal beli) |
+| 5 | 30 | 41 | 31.7% | +870.03% | -73.02% | 11.92 | 🔴 **12 hari lalu** (SELL, menunggu sinyal beli) |
+| 12 | 30 | 28 | 28.6% | +860.41% | -76.56% | 11.24 | 🔴 **10 hari lalu** (SELL, menunggu sinyal beli) |
+| 12 | 26 | 31 | 35.5% | +795.79% | -78.20% | 10.18 | 🔴 **11 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 30 | 27 | 29.6% | +778.56% | -79.36% | 9.81 | 🔴 **10 hari lalu** (SELL, menunggu sinyal beli) |
+| 9 | 20 | 41 | 39.0% | +700.34% | -75.35% | 9.29 | 🔴 **13 hari lalu** (SELL, menunggu sinyal beli) |
+| 5 | 40 | 35 | 34.3% | +686.88% | -79.80% | 8.61 | 🔴 **11 hari lalu** (SELL, menunggu sinyal beli) |
+
+**Top 10 berdasarkan Calmar (risk-adjusted)**
+
+| Fast | Slow | Trades | Win Rate | Return | Max DD | Calmar | Sinyal Terakhir |
+|---|---|---|---|---|---|---|---|
+| 5 | 20 | 52 | 38.5% | +1217.28% | -67.00% | 18.17 | 🔴 **14 hari lalu** (SELL, menunggu sinyal beli) |
+| 5 | 26 | 47 | 34.0% | +1196.44% | -72.03% | 16.61 | 🔴 **13 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 30 | 30 | 33.3% | +980.66% | -77.77% | 12.61 | 🔴 **11 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 26 | 27 | 25.9% | +981.09% | -78.71% | 12.46 | 🔴 **10 hari lalu** (SELL, menunggu sinyal beli) |
+| 5 | 30 | 41 | 31.7% | +870.03% | -73.02% | 11.92 | 🔴 **12 hari lalu** (SELL, menunggu sinyal beli) |
+| 12 | 30 | 28 | 28.6% | +860.41% | -76.56% | 11.24 | 🔴 **10 hari lalu** (SELL, menunggu sinyal beli) |
+| 12 | 26 | 31 | 35.5% | +795.79% | -78.20% | 10.18 | 🔴 **11 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 30 | 27 | 29.6% | +778.56% | -79.36% | 9.81 | 🔴 **10 hari lalu** (SELL, menunggu sinyal beli) |
+| 9 | 20 | 41 | 39.0% | +700.34% | -75.35% | 9.29 | 🔴 **13 hari lalu** (SELL, menunggu sinyal beli) |
+| 20 | 26 | 27 | 29.6% | +681.83% | -77.10% | 8.84 | 🔴 **9 hari lalu** (SELL, menunggu sinyal beli) |
 
 ### PAXGUSDT (1 Day)
 
@@ -384,6 +542,44 @@ setiap kali script dijalankan dengan flag `--detail`.
 | 10 | 26 | 35 | 31.4% | +14335.11% | -44.00% | 325.83 | 🟢 **4 hari lalu** (BUY, masih holding) |
 | 8 | 26 | 42 | 33.3% | +15046.71% | -47.32% | 317.97 | 🟢 **4 hari lalu** (BUY, masih holding) |
 
+### SUIUSDT (1 Day)
+
+- **File sumber:** `suiusdt_1d.csv`
+- **Total candle:** 1160
+- **Buy & Hold:** -46.01%
+- **Rekomendasi (return tertinggi):** EMA `5/50` → Return +646.47%, MaxDD -51.10%
+- **Sinyal terakhir pada kombinasi ini:** 🔴 **39 hari lalu** (SELL, menunggu sinyal beli)
+
+**Top 10 berdasarkan Total Return**
+
+| Fast | Slow | Trades | Win Rate | Return | Max DD | Calmar | Sinyal Terakhir |
+|---|---|---|---|---|---|---|---|
+| 5 | 50 | 12 | 25.0% | +646.47% | -51.10% | 12.65 | 🔴 **39 hari lalu** (SELL, menunggu sinyal beli) |
+| 25 | 26 | 8 | 37.5% | +634.96% | -45.79% | 13.87 | 🔴 **36 hari lalu** (SELL, menunggu sinyal beli) |
+| 9 | 40 | 11 | 27.3% | +634.09% | -49.42% | 12.83 | 🔴 **38 hari lalu** (SELL, menunggu sinyal beli) |
+| 5 | 40 | 14 | 28.6% | +619.83% | -47.17% | 13.14 | 🔴 **39 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 40 | 8 | 37.5% | +581.39% | -40.97% | 14.19 | 🔴 **37 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 40 | 11 | 27.3% | +536.57% | -50.05% | 10.72 | 🔴 **38 hari lalu** (SELL, menunggu sinyal beli) |
+| 20 | 30 | 9 | 33.3% | +529.40% | -46.40% | 11.41 | 🔴 **37 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 26 | 12 | 25.0% | +484.01% | -51.90% | 9.33 | 🔴 **38 hari lalu** (SELL, menunggu sinyal beli) |
+| 8 | 50 | 9 | 22.2% | +472.10% | -43.90% | 10.75 | 🔴 **38 hari lalu** (SELL, menunggu sinyal beli) |
+| 9 | 50 | 9 | 33.3% | +472.08% | -44.27% | 10.66 | 🔴 **38 hari lalu** (SELL, menunggu sinyal beli) |
+
+**Top 10 berdasarkan Calmar (risk-adjusted)**
+
+| Fast | Slow | Trades | Win Rate | Return | Max DD | Calmar | Sinyal Terakhir |
+|---|---|---|---|---|---|---|---|
+| 15 | 40 | 8 | 37.5% | +581.39% | -40.97% | 14.19 | 🔴 **37 hari lalu** (SELL, menunggu sinyal beli) |
+| 25 | 26 | 8 | 37.5% | +634.96% | -45.79% | 13.87 | 🔴 **36 hari lalu** (SELL, menunggu sinyal beli) |
+| 5 | 40 | 14 | 28.6% | +619.83% | -47.17% | 13.14 | 🔴 **39 hari lalu** (SELL, menunggu sinyal beli) |
+| 9 | 40 | 11 | 27.3% | +634.09% | -49.42% | 12.83 | 🔴 **38 hari lalu** (SELL, menunggu sinyal beli) |
+| 5 | 50 | 12 | 25.0% | +646.47% | -51.10% | 12.65 | 🔴 **39 hari lalu** (SELL, menunggu sinyal beli) |
+| 25 | 30 | 7 | 28.6% | +470.51% | -38.92% | 12.09 | 🔴 **36 hari lalu** (SELL, menunggu sinyal beli) |
+| 20 | 30 | 9 | 33.3% | +529.40% | -46.40% | 11.41 | 🔴 **37 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 50 | 9 | 33.3% | +446.77% | -40.95% | 10.91 | 🔴 **38 hari lalu** (SELL, menunggu sinyal beli) |
+| 8 | 50 | 9 | 22.2% | +472.10% | -43.90% | 10.75 | 🔴 **38 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 40 | 11 | 27.3% | +536.57% | -50.05% | 10.72 | 🔴 **38 hari lalu** (SELL, menunggu sinyal beli) |
+
 ### TRXUSDT (1 Day)
 
 - **File sumber:** `trxusdt_1d.csv`
@@ -421,6 +617,44 @@ setiap kali script dijalankan dengan flag `--detail`.
 | 10 | 26 | 52 | 42.3% | +910.94% | -46.01% | 19.80 | 🔴 **33 hari lalu** (SELL, menunggu sinyal beli) |
 | 9 | 75 | 26 | 46.2% | +694.93% | -35.61% | 19.51 | 🔴 **28 hari lalu** (SELL, menunggu sinyal beli) |
 | 12 | 26 | 50 | 38.0% | +1005.38% | -53.45% | 18.81 | 🔴 **32 hari lalu** (SELL, menunggu sinyal beli) |
+
+### UNIUSDT (1 Day)
+
+- **File sumber:** `uniusdt_1d.csv`
+- **Total candle:** 2118
+- **Buy & Hold:** -8.25%
+- **Rekomendasi (return tertinggi):** EMA `25/26` → Return +1282.65%, MaxDD -35.67%
+- **Sinyal terakhir pada kombinasi ini:** 🟢 **0 hari lalu** (BUY, masih holding)
+
+**Top 10 berdasarkan Total Return**
+
+| Fast | Slow | Trades | Win Rate | Return | Max DD | Calmar | Sinyal Terakhir |
+|---|---|---|---|---|---|---|---|
+| 25 | 26 | 18 | 44.4% | +1282.65% | -35.67% | 35.95 | 🟢 **0 hari lalu** (BUY, masih holding) |
+| 15 | 40 | 20 | 40.0% | +891.77% | -45.23% | 19.71 | 🟢 **0 hari lalu** (BUY, masih holding) |
+| 20 | 30 | 22 | 36.4% | +854.61% | -37.71% | 22.67 | 🟢 **1 hari lalu** (BUY, masih holding) |
+| 12 | 50 | 21 | 33.3% | +674.01% | -49.67% | 13.57 | 🟢 **0 hari lalu** (BUY, masih holding) |
+| 20 | 26 | 27 | 25.9% | +657.51% | -48.58% | 13.53 | 🟢 **1 hari lalu** (BUY, masih holding) |
+| 25 | 30 | 17 | 35.3% | +649.35% | -53.19% | 12.21 | 🔴 **39 hari lalu** (SELL, menunggu sinyal beli) |
+| 12 | 40 | 24 | 29.2% | +627.25% | -45.45% | 13.80 | 🟢 **1 hari lalu** (BUY, masih holding) |
+| 20 | 40 | 16 | 31.2% | +572.71% | -60.34% | 9.49 | 🔴 **39 hari lalu** (SELL, menunggu sinyal beli) |
+| 9 | 50 | 23 | 34.8% | +540.81% | -46.83% | 11.55 | 🟢 **1 hari lalu** (BUY, masih holding) |
+| 15 | 30 | 26 | 38.5% | +535.18% | -45.87% | 11.67 | 🟢 **2 hari lalu** (BUY, masih holding) |
+
+**Top 10 berdasarkan Calmar (risk-adjusted)**
+
+| Fast | Slow | Trades | Win Rate | Return | Max DD | Calmar | Sinyal Terakhir |
+|---|---|---|---|---|---|---|---|
+| 25 | 26 | 18 | 44.4% | +1282.65% | -35.67% | 35.95 | 🟢 **0 hari lalu** (BUY, masih holding) |
+| 20 | 30 | 22 | 36.4% | +854.61% | -37.71% | 22.67 | 🟢 **1 hari lalu** (BUY, masih holding) |
+| 15 | 40 | 20 | 40.0% | +891.77% | -45.23% | 19.71 | 🟢 **0 hari lalu** (BUY, masih holding) |
+| 12 | 40 | 24 | 29.2% | +627.25% | -45.45% | 13.80 | 🟢 **1 hari lalu** (BUY, masih holding) |
+| 12 | 50 | 21 | 33.3% | +674.01% | -49.67% | 13.57 | 🟢 **0 hari lalu** (BUY, masih holding) |
+| 20 | 26 | 27 | 25.9% | +657.51% | -48.58% | 13.53 | 🟢 **1 hari lalu** (BUY, masih holding) |
+| 25 | 30 | 17 | 35.3% | +649.35% | -53.19% | 12.21 | 🔴 **39 hari lalu** (SELL, menunggu sinyal beli) |
+| 15 | 30 | 26 | 38.5% | +535.18% | -45.87% | 11.67 | 🟢 **2 hari lalu** (BUY, masih holding) |
+| 9 | 50 | 23 | 34.8% | +540.81% | -46.83% | 11.55 | 🟢 **1 hari lalu** (BUY, masih holding) |
+| 15 | 26 | 27 | 29.6% | +439.30% | -44.85% | 9.79 | 🟢 **2 hari lalu** (BUY, masih holding) |
 
 ### XLMUSDT (1 Day)
 
@@ -464,7 +698,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `xmrusd_daily_kraken.csv`
 - **Total candle:** 723
-- **Buy & Hold:** +104.30%
+- **Buy & Hold:** +99.12%
 - **Rekomendasi (return tertinggi):** EMA `12/20` → Return +167.80%, MaxDD -10.63%
 - **Sinyal terakhir pada kombinasi ini:** 🔴 **41 hari lalu** (SELL, menunggu sinyal beli)
 
