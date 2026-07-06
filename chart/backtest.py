@@ -98,6 +98,43 @@ def load_csv(path):
     rows.sort(key=lambda x: x['open_time'])
     return rows
 
+
+def detect_market_condition(rows):
+    """
+    Tentukan kondisi bull/bear keseluruhan periode data berdasarkan:
+    - Perubahan harga close awal vs akhir (arah utama)
+    - Persentase waktu harga berada di atas EMA 200 (proxy tren jangka panjang)
+    Return dict: {label, price_change_pct, pct_time_above_ema200}
+    """
+    closes = [r['close'] for r in rows]
+    n = len(closes)
+
+    price_change_pct = (closes[-1] - closes[0]) / closes[0] * 100
+
+    if n > 200:
+        ema200 = ema_series(closes, 200)
+        above_count = sum(1 for i in range(200, n) if closes[i] > ema200[i])
+        pct_time_above = above_count / (n - 200) * 100
+    else:
+        pct_time_above = None
+
+    # Klasifikasi sederhana: gabungan arah harga keseluruhan + dominasi waktu di atas EMA200
+    if pct_time_above is not None:
+        if price_change_pct > 0 and pct_time_above >= 50:
+            label = "Bullish"
+        elif price_change_pct < 0 and pct_time_above < 50:
+            label = "Bearish"
+        else:
+            label = "Sideways/Mixed"
+    else:
+        label = "Bullish" if price_change_pct > 0 else "Bearish"
+
+    return {
+        "label": label,
+        "price_change_pct": price_change_pct,
+        "pct_time_above_ema200": pct_time_above,
+    }
+
 def ema_series(closes, span):
     alpha = 2 / (span + 1)
     ema = [closes[0]]
@@ -105,7 +142,7 @@ def ema_series(closes, span):
         ema.append(alpha * price + (1 - alpha) * ema[-1])
     return ema
 
-def backtest_dual_ema(closes, fast, slow):
+def backtest_dual_ema(closes, fast, slow, open_times=None):
     n = len(closes)
     ema_fast = ema_series(closes, fast)
     ema_slow = ema_series(closes, slow)
@@ -114,19 +151,28 @@ def backtest_dual_ema(closes, fast, slow):
     trades = []
     position = None
     entry_price = None
+    entry_idx = None
+
+    last_signal_idx = None   # index candle saat crossover TERAKHIR terjadi (buy atau sell)
+    last_signal_type = None  # "BUY" atau "SELL"
 
     for i in range(slow, n):
         if position is None and (not above[i-1]) and above[i]:
             position = 'LONG'
             entry_price = closes[i]
+            entry_idx = i
+            last_signal_idx = i
+            last_signal_type = "BUY"
         elif position == 'LONG' and above[i-1] and (not above[i]):
             gross = (closes[i] - entry_price) / entry_price * 100
-            trades.append(gross - 2 * FEE_PCT)
+            trades.append({"pnl": gross - 2 * FEE_PCT})
             position = None
+            last_signal_idx = i
+            last_signal_type = "SELL"
 
     if position == 'LONG':
         gross = (closes[-1] - entry_price) / entry_price * 100
-        trades.append(gross - 2 * FEE_PCT)
+        trades.append({"pnl": gross - 2 * FEE_PCT})
 
     if len(trades) < 3:
         return None
@@ -136,7 +182,8 @@ def backtest_dual_ema(closes, fast, slow):
     max_dd = 0.0
     wins = 0
 
-    for pnl in trades:
+    for t in trades:
+        pnl = t["pnl"]
         equity *= (1 + pnl / 100)
         if equity > peak:
             peak = equity
@@ -150,6 +197,11 @@ def backtest_dual_ema(closes, fast, slow):
     win_rate = wins / len(trades) * 100
     calmar = total_return / abs(max_dd) if max_dd != 0 else 0
 
+    days_since_last_signal = None
+    current_position_status = "SELL (menunggu sinyal BUY)" if position is None else "BUY (masih holding)"
+    if open_times is not None and last_signal_idx is not None:
+        days_since_last_signal = (open_times[-1] - open_times[last_signal_idx]) / 86400000  # ms -> hari
+
     return {
         'fast': fast, 'slow': slow,
         'n_trades': len(trades),
@@ -157,31 +209,71 @@ def backtest_dual_ema(closes, fast, slow):
         'total_return_pct': total_return,
         'max_dd_pct': max_dd,
         'calmar': calmar,
+        'last_signal_type': last_signal_type,
+        'days_since_last_signal': days_since_last_signal,
+        'current_position_status': current_position_status,
     }
+
+def _fmt_pct_plain(val):
+    sign = "+" if val > 0 else ""
+    return f"{sign}{val:.2f}%"
+
+
+def _fmt_last_signal(r):
+    """Format ringkas plain-text: '<N>h (BUY)' dari hasil backtest_dual_ema."""
+    if r.get('days_since_last_signal') is None or r.get('last_signal_type') is None:
+        return "-"
+    return f"{r['days_since_last_signal']:.0f}h ({r['last_signal_type']})"
+
+
+def _fmt_last_signal_rich(r):
+    """Format dengan warna rich: hijau untuk BUY (holding), merah untuk SELL (menunggu beli)."""
+    if r.get('days_since_last_signal') is None or r.get('last_signal_type') is None:
+        return "-"
+    sig_type = r['last_signal_type']
+    color = "green" if sig_type == "BUY" else "red"
+    text = f"{r['days_since_last_signal']:.0f}h ({sig_type})"
+    return f"[{color}]{text}[/{color}]"
+
+
+def _fmt_market_condition_rich(detail):
+    """Format kondisi pasar dengan warna rich: hijau Bullish, merah Bearish, netral Sideways."""
+    if not detail:
+        return "-"
+    mc = detail["market_condition"]
+    label = mc["label"]
+    color = {"Bullish": "green", "Bearish": "red", "Sideways/Mixed": "yellow"}.get(label, "white")
+    return f"[{color}]{label}[/{color}]"
+
 
 def run_one_file(path, verbose=True, collect_detail=False):
     """
     Jalankan optimasi penuh untuk satu file CSV.
     Return (path, best_result_or_None, bh_return, detail_dict_or_None).
-    detail_dict berisi top10_return & top10_calmar (list of dict) -- dipakai untuk render markdown.
+    detail_dict berisi top10_return, top10_calmar, & market_condition -- dipakai untuk render markdown.
     """
     rows = load_csv(path)
     closes = [r['close'] for r in rows]
+    open_times = [r['open_time'] for r in rows]
 
     bh_return = (closes[-1] - closes[0]) / closes[0] * 100
+    market_condition = detect_market_condition(rows)
 
     if verbose:
+        cond_line = f"Kondisi Pasar: {market_condition['label']} ({_fmt_pct_plain(market_condition['price_change_pct'])} periode ini)"
         if HAS_RICH:
             console.print(f"\n[bold cyan]File[/bold cyan]        : {path}")
             console.print(f"[bold cyan]Total candle[/bold cyan]: {len(rows)}")
             console.print(f"[bold cyan]Fee[/bold cyan]         : {FEE_PCT}% per sisi ({2*FEE_PCT}% round-trip)")
             console.print(f"[bold cyan]Buy & Hold[/bold cyan]  : {bh_return:.2f}%")
+            console.print(f"[bold cyan]{cond_line}[/bold cyan]")
             console.print(f"Mencoba {len(FAST_CANDIDATES) * len(SLOW_CANDIDATES)} kombinasi EMA...\n")
         else:
             print(f"File        : {path}")
             print(f"Total candle: {len(rows)}")
             print(f"Fee         : {FEE_PCT}% per sisi ({2*FEE_PCT}% round-trip)")
             print(f"Buy & Hold  : {bh_return:.2f}%")
+            print(cond_line)
             print(f"Mencoba {len(FAST_CANDIDATES) * len(SLOW_CANDIDATES)} kombinasi EMA...\n")
 
     results = []
@@ -189,7 +281,7 @@ def run_one_file(path, verbose=True, collect_detail=False):
         for slow in SLOW_CANDIDATES:
             if fast >= slow:
                 continue
-            r = backtest_dual_ema(closes, fast, slow)
+            r = backtest_dual_ema(closes, fast, slow, open_times=open_times)
             if r:
                 results.append(r)
 
@@ -208,14 +300,16 @@ def run_one_file(path, verbose=True, collect_detail=False):
             _print_rich_table("TOP 10 berdasarkan Calmar (risk-adjusted)", results_calmar[:10])
         else:
             print("=== TOP 10 berdasarkan Total Return ===")
-            print(f"{'Fast':>5} {'Slow':>5} {'Trades':>7} {'WinRate':>8} {'Return%':>12} {'MaxDD%':>9} {'Calmar':>8}")
+            print(f"{'Fast':>5} {'Slow':>5} {'Trades':>7} {'WinRate':>8} {'Return%':>12} {'MaxDD%':>9} {'Calmar':>8} {'SinyalTerakhir':>16}")
             for r in results[:10]:
-                print(f"{r['fast']:>5} {r['slow']:>5} {r['n_trades']:>7} {r['win_rate']:>7.1f}% {r['total_return_pct']:>11.2f}% {r['max_dd_pct']:>8.2f}% {r['calmar']:>8.2f}")
+                sig = _fmt_last_signal(r)
+                print(f"{r['fast']:>5} {r['slow']:>5} {r['n_trades']:>7} {r['win_rate']:>7.1f}% {r['total_return_pct']:>11.2f}% {r['max_dd_pct']:>8.2f}% {r['calmar']:>8.2f} {sig:>16}")
 
             print("\n=== TOP 10 berdasarkan Calmar (risk-adjusted) ===")
-            print(f"{'Fast':>5} {'Slow':>5} {'Trades':>7} {'WinRate':>8} {'Return%':>12} {'MaxDD%':>9} {'Calmar':>8}")
+            print(f"{'Fast':>5} {'Slow':>5} {'Trades':>7} {'WinRate':>8} {'Return%':>12} {'MaxDD%':>9} {'Calmar':>8} {'SinyalTerakhir':>16}")
             for r in results_calmar[:10]:
-                print(f"{r['fast']:>5} {r['slow']:>5} {r['n_trades']:>7} {r['win_rate']:>7.1f}% {r['total_return_pct']:>11.2f}% {r['max_dd_pct']:>8.2f}% {r['calmar']:>8.2f}")
+                sig = _fmt_last_signal(r)
+                print(f"{r['fast']:>5} {r['slow']:>5} {r['n_trades']:>7} {r['win_rate']:>7.1f}% {r['total_return_pct']:>11.2f}% {r['max_dd_pct']:>8.2f}% {r['calmar']:>8.2f} {sig:>16}")
 
         best = results[0]
         rekomendasi = f"\n>> Rekomendasi (return tertinggi): EMA {best['fast']}/{best['slow']}"
@@ -224,6 +318,7 @@ def run_one_file(path, verbose=True, collect_detail=False):
     detail = None
     if collect_detail:
         detail = {
+            "market_condition": market_condition,
             "total_candle": len(rows),
             "top10_return": results[:10],
             "top10_calmar": results_calmar[:10],
@@ -247,6 +342,25 @@ def _fmt_pct(val):
     return f"{sign}{val:.2f}%"
 
 
+def _fmt_last_signal_md(r):
+    """Format untuk markdown: warna hijau untuk BUY (masih holding), merah untuk SELL (menunggu beli)."""
+    if r.get('days_since_last_signal') is None or r.get('last_signal_type') is None:
+        return "-"
+    days = r['days_since_last_signal']
+    sig_type = r['last_signal_type']
+    status = "masih holding" if sig_type == "BUY" else "menunggu sinyal beli"
+    color = "green" if sig_type == "BUY" else "red"
+    return f'<span style="color:{color}">**{days:.0f} hari lalu** ({sig_type}, {status})</span>'
+
+
+def _market_condition_label(detail):
+    """Bangun label kondisi pasar berwarna (HTML span, didukung GitHub markdown) tanpa emoji."""
+    mc = detail["market_condition"]
+    label = mc["label"]
+    color = {"Bullish": "green", "Bearish": "red", "Sideways/Mixed": "gray"}.get(label, "gray")
+    return f'<span style="color:{color}">**{label}**</span>'
+
+
 def generate_markdown_section(summary_with_detail):
     """
     Bangun konten markdown lengkap (tanpa header/footer README) dari hasil backtest.
@@ -256,27 +370,37 @@ def generate_markdown_section(summary_with_detail):
     lines.append(f"**Fee yang digunakan:** {FEE_PCT}% per sisi ({2*FEE_PCT}% round-trip)")
     lines.append(f"**Grid EMA yang diuji:** fast {FAST_CANDIDATES} x slow {SLOW_CANDIDATES}")
     lines.append("")
+    lines.append("**Kondisi Pasar** ditentukan dari arah perubahan harga close awal-akhir "
+                 "dan persentase waktu harga berada di atas EMA 200 sepanjang periode data.")
+    lines.append("**Sinyal Terakhir** menunjukkan sudah berapa hari sejak crossover EMA terakhir "
+                 "terjadi pada kombinasi tersebut, dihitung sampai candle paling akhir di data "
+                 "(BUY = masih dalam posisi terbuka, SELL = sudah keluar dan menunggu sinyal beli berikutnya).")
+    lines.append("")
 
     # --- Tabel ringkasan utama di atas ---
     lines.append("## Ringkasan Hasil")
     lines.append("")
-    headers = ["Pair", "Timeframe", "Total Candle", "EMA Terbaik", "Return", "Max DD", "Buy & Hold", "vs B&H"]
+    headers = ["Pair", "Timeframe", "Total Candle", "Kondisi Pasar", "EMA Terbaik",
+               "Return", "Max DD", "Buy & Hold", "vs B&H", "Sinyal Terakhir"]
     table_rows = []
     for path, best, bh, detail in summary_with_detail:
         pair, tf_label = parse_filename(path)
         candle_count = detail["total_candle"] if detail else "-"
+        cond_label = _market_condition_label(detail) if detail else "-"
         if best is None:
-            table_rows.append([pair, tf_label, candle_count, "-", "-", "-", _fmt_pct(bh), "-"])
+            table_rows.append([pair, tf_label, candle_count, cond_label, "-", "-", "-", _fmt_pct(bh), "-", "-"])
         else:
             beats = best['total_return_pct'] > bh
             vs_label = "✅ Menang" if beats else "❌ Kalah"
+            sig_label = _fmt_last_signal_md(best)
             table_rows.append([
-                f"**{pair}**", tf_label, candle_count,
+                f"**{pair}**", tf_label, candle_count, cond_label,
                 f"`{best['fast']}/{best['slow']}`",
                 _fmt_pct(best['total_return_pct']),
                 f"{best['max_dd_pct']:.2f}%",
                 _fmt_pct(bh),
                 vs_label,
+                sig_label,
             ])
     lines.append(_md_table(headers, table_rows))
     lines.append("")
@@ -296,19 +420,29 @@ def generate_markdown_section(summary_with_detail):
             continue
 
         candle_count = detail["total_candle"]
+        mc = detail["market_condition"]
+        cond_label = _market_condition_label(detail)
+        pct_above = mc["pct_time_above_ema200"]
+        pct_above_str = f"{pct_above:.1f}%" if pct_above is not None else "n/a"
+
         lines.append(f"- **File sumber:** `{path}`")
         lines.append(f"- **Total candle:** {candle_count}")
+        lines.append(f"- **Kondisi Pasar:** {cond_label} "
+                      f"(perubahan harga {_fmt_pct(mc['price_change_pct'])}, "
+                      f"{pct_above_str} waktu di atas EMA 200)")
         lines.append(f"- **Buy & Hold:** {_fmt_pct(bh)}")
         lines.append(f"- **Rekomendasi (return tertinggi):** EMA `{best['fast']}/{best['slow']}` "
                       f"→ Return {_fmt_pct(best['total_return_pct'])}, MaxDD {best['max_dd_pct']:.2f}%")
+        lines.append(f"- **Sinyal terakhir pada kombinasi ini:** {_fmt_last_signal_md(best)}")
         lines.append("")
 
         lines.append("**Top 10 berdasarkan Total Return**")
         lines.append("")
-        headers_detail = ["Fast", "Slow", "Trades", "Win Rate", "Return", "Max DD", "Calmar"]
+        headers_detail = ["Fast", "Slow", "Trades", "Win Rate", "Return", "Max DD", "Calmar", "Sinyal Terakhir"]
         rows_return = [
             [r['fast'], r['slow'], r['n_trades'], f"{r['win_rate']:.1f}%",
-             _fmt_pct(r['total_return_pct']), f"{r['max_dd_pct']:.2f}%", f"{r['calmar']:.2f}"]
+             _fmt_pct(r['total_return_pct']), f"{r['max_dd_pct']:.2f}%", f"{r['calmar']:.2f}",
+             _fmt_last_signal_md(r)]
             for r in detail["top10_return"]
         ]
         lines.append(_md_table(headers_detail, rows_return))
@@ -318,7 +452,8 @@ def generate_markdown_section(summary_with_detail):
         lines.append("")
         rows_calmar = [
             [r['fast'], r['slow'], r['n_trades'], f"{r['win_rate']:.1f}%",
-             _fmt_pct(r['total_return_pct']), f"{r['max_dd_pct']:.2f}%", f"{r['calmar']:.2f}"]
+             _fmt_pct(r['total_return_pct']), f"{r['max_dd_pct']:.2f}%", f"{r['calmar']:.2f}",
+             _fmt_last_signal_md(r)]
             for r in detail["top10_calmar"]
         ]
         lines.append(_md_table(headers_detail, rows_calmar))
@@ -397,15 +532,18 @@ def _print_rich_table(title, rows):
     table.add_column("Return%", justify="right")
     table.add_column("MaxDD%", justify="right")
     table.add_column("Calmar", justify="right")
+    table.add_column("Sinyal Terakhir", justify="right")
 
     for r in rows:
         return_style = "green" if r['total_return_pct'] > 0 else "red"
+        sig = _fmt_last_signal_rich(r)
         table.add_row(
             str(r['fast']), str(r['slow']), str(r['n_trades']),
             f"{r['win_rate']:.1f}%",
             f"[{return_style}]{r['total_return_pct']:.2f}%[/{return_style}]",
             f"[red]{r['max_dd_pct']:.2f}%[/red]",
             f"{r['calmar']:.2f}",
+            sig,
         )
     console.print(table)
 
@@ -452,40 +590,58 @@ def main():
         table = Table(title="Result", box=box.ROUNDED, show_lines=True, title_style="bold magenta")
         table.add_column("Pair", style="bold cyan", no_wrap=True)
         table.add_column("Timeframe", style="cyan")
+        if detail_mode:
+            table.add_column("Kondisi", justify="center")
         table.add_column("EMA", justify="center", style="yellow")
         table.add_column("Return%", justify="right")
         table.add_column("MaxDD%", justify="right", style="red")
         table.add_column("B&H%", justify="right")
         table.add_column("vs B&H", justify="center")
+        if detail_mode:
+            table.add_column("Sinyal Terakhir", justify="right")
 
-        for path, best, bh, _detail in summary:
+        for path, best, bh, detail in summary:
             pair, tf_label = parse_filename(path)
+            cond_cell = []
+            if detail_mode:
+                cond_cell = [_fmt_market_condition_rich(detail)]
+
             if best is None:
-                table.add_row(pair, tf_label, "--/--", "-", "-", f"{bh:.2f}%", "-")
+                row = [pair, tf_label] + cond_cell + ["--/--", "-", "-", f"{bh:.2f}%", "-"]
+                if detail_mode:
+                    row.append("-")
+                table.add_row(*row)
                 continue
+
             return_style = "bold green" if best['total_return_pct'] > 0 else "bold red"
             beats_bh = best['total_return_pct'] > bh
             vs_bh_label = "[green]MENANG[/green]" if beats_bh else "[red]KALAH[/red]"
-            table.add_row(
-                pair,
-                tf_label,
+            row = [pair, tf_label] + cond_cell + [
                 f"{best['fast']}/{best['slow']}",
                 f"[{return_style}]{best['total_return_pct']:.2f}%[/{return_style}]",
                 f"{best['max_dd_pct']:.2f}%",
                 f"{bh:.2f}%",
                 vs_bh_label,
-            )
+            ]
+            if detail_mode:
+                row.append(_fmt_last_signal_rich(best))
+            table.add_row(*row)
         console.print()
         console.print(table)
     else:
         print("\nResult:")
-        for path, best, bh, _detail in summary:
+        for path, best, bh, detail in summary:
             pair, tf_label = parse_filename(path)
             if best is None:
                 print(f"{pair} Timeframe {tf_label}: (data tidak cukup untuk uji)")
             else:
+                extra = ""
+                if detail_mode and detail:
+                    mc = detail["market_condition"]
+                    sig = _fmt_last_signal(best)
+                    extra = f"  | Kondisi {mc['label']}  | Sinyal Terakhir {sig}"
                 print(f"{pair} Timeframe {tf_label}: EMA {best['fast']}/{best['slow']}  "
-                      f"| Return {best['total_return_pct']:.2f}%  | MaxDD {best['max_dd_pct']:.2f}%  | B&H {bh:.2f}%")
+                      f"| Return {best['total_return_pct']:.2f}%  | MaxDD {best['max_dd_pct']:.2f}%  | B&H {bh:.2f}%{extra}")
 
     if detail_mode:
         readme_path = write_readme(summary)
@@ -494,6 +650,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 
