@@ -287,14 +287,14 @@ def _fmt_pct(val):
 
 
 def _fmt_last_signal_md(r):
-    """Format untuk markdown: warna hijau untuk BUY (masih holding), merah untuk SELL (menunggu beli)."""
+    """Format untuk markdown: emoji hijau untuk BUY (masih holding), merah untuk SELL (menunggu beli)."""
     if r.get('days_since_last_signal') is None or r.get('last_signal_type') is None:
         return "-"
     days = r['days_since_last_signal']
     sig_type = r['last_signal_type']
     status = "masih holding" if sig_type == "BUY" else "menunggu sinyal beli"
-    color = "green" if sig_type == "BUY" else "red"
-    return f'<span style="color:{color}">**{days:.0f} hari lalu** ({sig_type}, {status})</span>'
+    emoji = "🟢" if sig_type == "BUY" else "🔴"
+    return f'{emoji} **{days:.0f} hari lalu** ({sig_type}, {status})'
 
 
 def generate_markdown_section(summary_with_detail):
