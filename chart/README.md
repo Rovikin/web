@@ -19,27 +19,26 @@ setiap kali script dijalankan dengan flag `--detail`.
 **Fee yang digunakan:** 0.15% per sisi (0.3% round-trip)
 **Grid EMA yang diuji:** fast [5, 8, 9, 10, 12, 15, 20, 25, 30, 40] x slow [20, 26, 30, 40, 50, 75, 100, 150, 200]
 
-**Kondisi Pasar** ditentukan dari arah perubahan harga close awal-akhir dan persentase waktu harga berada di atas EMA 200 sepanjang periode data.
 **Sinyal Terakhir** menunjukkan sudah berapa hari sejak crossover EMA terakhir terjadi pada kombinasi tersebut, dihitung sampai candle paling akhir di data (BUY = masih dalam posisi terbuka, SELL = sudah keluar dan menunggu sinyal beli berikutnya).
 
 ## Ringkasan Hasil
 
-| Pair | Timeframe | Total Candle | Kondisi Pasar | EMA Terbaik | Return | Max DD | Buy & Hold | vs B&H | Sinyal Terakhir |
-|---|---|---|---|---|---|---|---|---|---|
-| **ADAUSDT** | 1 Day | 3002 | <span style="color:red">**Bearish**</span> | `15/40` | +9390.82% | -34.42% | -21.89% | ✅ Menang | <span style="color:red">**45 hari lalu** (SELL, menunggu sinyal beli)</span> |
-| **BCHUSDT** | 1 Day | 2412 | <span style="color:gray">**Sideways/Mixed**</span> | `25/75` | +200.06% | -55.10% | +12.41% | ✅ Menang | <span style="color:red">**153 hari lalu** (SELL, menunggu sinyal beli)</span> |
-| **BNBUSDT** | 1 Day | 3164 | <span style="color:green">**Bullish**</span> | `10/26` | +30822.68% | -31.91% | +37447.42% | ❌ Kalah | <span style="color:red">**31 hari lalu** (SELL, menunggu sinyal beli)</span> |
-| **BTCUSDT** | 1 Day | 3245 | <span style="color:green">**Bullish**</span> | `10/30` | +6804.41% | -52.55% | +1385.39% | ✅ Menang | <span style="color:red">**44 hari lalu** (SELL, menunggu sinyal beli)</span> |
-| **DOGEUSDT** | 1 Day | 2558 | <span style="color:gray">**Sideways/Mixed**</span> | `15/26` | +18176.70% | -56.62% | +1912.09% | ✅ Menang | <span style="color:red">**40 hari lalu** (SELL, menunggu sinyal beli)</span> |
-| **ETHUSDT** | 1 Day | 3245 | <span style="color:green">**Bullish**</span> | `10/20` | +7186.33% | -46.34% | +491.27% | ✅ Menang | <span style="color:green">**0 hari lalu** (BUY, masih holding)</span> |
-| **LINKUSDT** | 1 Day | 2728 | <span style="color:gray">**Sideways/Mixed**</span> | `5/100` | +1614.49% | -71.67% | +1547.19% | ✅ Menang | <span style="color:red">**48 hari lalu** (SELL, menunggu sinyal beli)</span> |
-| **PAXGUSDT** | 1 Day | 2138 | <span style="color:green">**Bullish**</span> | `20/150` | +130.22% | -8.78% | +111.31% | ✅ Menang | <span style="color:red">**49 hari lalu** (SELL, menunggu sinyal beli)</span> |
-| **SOLUSDT** | 1 Day | 2155 | <span style="color:gray">**Sideways/Mixed**</span> | `9/26` | +19464.06% | -44.22% | +2373.55% | ✅ Menang | <span style="color:green">**4 hari lalu** (BUY, masih holding)</span> |
-| **TRXUSDT** | 1 Day | 2947 | <span style="color:green">**Bullish**</span> | `12/30` | +1222.82% | -43.96% | +580.17% | ✅ Menang | <span style="color:red">**32 hari lalu** (SELL, menunggu sinyal beli)</span> |
-| **XLMUSDT** | 1 Day | 2958 | <span style="color:red">**Bearish**</span> | `5/30` | +418.52% | -62.23% | -31.21% | ✅ Menang | <span style="color:green">**2 hari lalu** (BUY, masih holding)</span> |
-| **XMRUSD** | 1 Day | 723 | <span style="color:green">**Bullish**</span> | `12/20` | +167.80% | -10.63% | +104.30% | ✅ Menang | <span style="color:red">**41 hari lalu** (SELL, menunggu sinyal beli)</span> |
-| **XRPUSDT** | 1 Day | 2985 | <span style="color:gray">**Sideways/Mixed**</span> | `9/200` | +99.26% | -50.56% | +30.04% | ✅ Menang | <span style="color:red">**264 hari lalu** (SELL, menunggu sinyal beli)</span> |
-| **ZECUSDT** | 1 Day | 2664 | <span style="color:gray">**Sideways/Mixed**</span> | `5/26` | +5612.39% | -75.56% | +738.28% | ✅ Menang | <span style="color:green">**0 hari lalu** (BUY, masih holding)</span> |
+| Pair | Timeframe | Total Candle | EMA Terbaik | Return | Max DD | Buy & Hold | vs B&H | Sinyal Terakhir |
+|---|---|---|---|---|---|---|---|---|
+| **ADAUSDT** | 1 Day | 3002 | `15/40` | +9390.82% | -34.42% | -21.89% | ✅ Menang | <span style="color:red">**45 hari lalu** (SELL, menunggu sinyal beli)</span> |
+| **BCHUSDT** | 1 Day | 2412 | `25/75` | +200.06% | -55.10% | +12.41% | ✅ Menang | <span style="color:red">**153 hari lalu** (SELL, menunggu sinyal beli)</span> |
+| **BNBUSDT** | 1 Day | 3164 | `10/26` | +30822.68% | -31.91% | +37447.42% | ❌ Kalah | <span style="color:red">**31 hari lalu** (SELL, menunggu sinyal beli)</span> |
+| **BTCUSDT** | 1 Day | 3245 | `10/30` | +6804.41% | -52.55% | +1385.39% | ✅ Menang | <span style="color:red">**44 hari lalu** (SELL, menunggu sinyal beli)</span> |
+| **DOGEUSDT** | 1 Day | 2558 | `15/26` | +18176.70% | -56.62% | +1912.09% | ✅ Menang | <span style="color:red">**40 hari lalu** (SELL, menunggu sinyal beli)</span> |
+| **ETHUSDT** | 1 Day | 3245 | `10/20` | +7186.33% | -46.34% | +491.27% | ✅ Menang | <span style="color:green">**0 hari lalu** (BUY, masih holding)</span> |
+| **LINKUSDT** | 1 Day | 2728 | `5/100` | +1614.49% | -71.67% | +1547.19% | ✅ Menang | <span style="color:red">**48 hari lalu** (SELL, menunggu sinyal beli)</span> |
+| **PAXGUSDT** | 1 Day | 2138 | `20/150` | +130.22% | -8.78% | +111.31% | ✅ Menang | <span style="color:red">**49 hari lalu** (SELL, menunggu sinyal beli)</span> |
+| **SOLUSDT** | 1 Day | 2155 | `9/26` | +19464.06% | -44.22% | +2373.55% | ✅ Menang | <span style="color:green">**4 hari lalu** (BUY, masih holding)</span> |
+| **TRXUSDT** | 1 Day | 2947 | `12/30` | +1222.82% | -43.96% | +580.17% | ✅ Menang | <span style="color:red">**32 hari lalu** (SELL, menunggu sinyal beli)</span> |
+| **XLMUSDT** | 1 Day | 2958 | `5/30` | +418.52% | -62.23% | -31.21% | ✅ Menang | <span style="color:green">**2 hari lalu** (BUY, masih holding)</span> |
+| **XMRUSD** | 1 Day | 723 | `12/20` | +167.80% | -10.63% | +104.30% | ✅ Menang | <span style="color:red">**41 hari lalu** (SELL, menunggu sinyal beli)</span> |
+| **XRPUSDT** | 1 Day | 2985 | `9/200` | +99.26% | -50.56% | +30.04% | ✅ Menang | <span style="color:red">**264 hari lalu** (SELL, menunggu sinyal beli)</span> |
+| **ZECUSDT** | 1 Day | 2664 | `5/26` | +5612.39% | -75.56% | +738.28% | ✅ Menang | <span style="color:green">**0 hari lalu** (BUY, masih holding)</span> |
 
 ## Detail per Aset
 
@@ -47,7 +46,6 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `adausdt_1d.csv`
 - **Total candle:** 3002
-- **Kondisi Pasar:** <span style="color:red">**Bearish**</span> (perubahan harga -21.89%, 39.1% waktu di atas EMA 200)
 - **Buy & Hold:** -21.89%
 - **Rekomendasi (return tertinggi):** EMA `15/40` → Return +9390.82%, MaxDD -34.42%
 - **Sinyal terakhir pada kombinasi ini:** <span style="color:red">**45 hari lalu** (SELL, menunggu sinyal beli)</span>
@@ -86,7 +84,6 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `bchusdt_1d.csv`
 - **Total candle:** 2412
-- **Kondisi Pasar:** <span style="color:gray">**Sideways/Mixed**</span> (perubahan harga +12.41%, 49.3% waktu di atas EMA 200)
 - **Buy & Hold:** +12.41%
 - **Rekomendasi (return tertinggi):** EMA `25/75` → Return +200.06%, MaxDD -55.10%
 - **Sinyal terakhir pada kombinasi ini:** <span style="color:red">**153 hari lalu** (SELL, menunggu sinyal beli)</span>
@@ -125,7 +122,6 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `bnbusdt_1d.csv`
 - **Total candle:** 3164
-- **Kondisi Pasar:** <span style="color:green">**Bullish**</span> (perubahan harga +37447.42%, 56.4% waktu di atas EMA 200)
 - **Buy & Hold:** +37447.42%
 - **Rekomendasi (return tertinggi):** EMA `10/26` → Return +30822.68%, MaxDD -31.91%
 - **Sinyal terakhir pada kombinasi ini:** <span style="color:red">**31 hari lalu** (SELL, menunggu sinyal beli)</span>
@@ -164,7 +160,6 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `btcusdt_1d.csv`
 - **Total candle:** 3245
-- **Kondisi Pasar:** <span style="color:green">**Bullish**</span> (perubahan harga +1385.39%, 55.9% waktu di atas EMA 200)
 - **Buy & Hold:** +1385.39%
 - **Rekomendasi (return tertinggi):** EMA `10/30` → Return +6804.41%, MaxDD -52.55%
 - **Sinyal terakhir pada kombinasi ini:** <span style="color:red">**44 hari lalu** (SELL, menunggu sinyal beli)</span>
@@ -203,7 +198,6 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `dogeusdt_1d.csv`
 - **Total candle:** 2558
-- **Kondisi Pasar:** <span style="color:gray">**Sideways/Mixed**</span> (perubahan harga +1912.09%, 43.6% waktu di atas EMA 200)
 - **Buy & Hold:** +1912.09%
 - **Rekomendasi (return tertinggi):** EMA `15/26` → Return +18176.70%, MaxDD -56.62%
 - **Sinyal terakhir pada kombinasi ini:** <span style="color:red">**40 hari lalu** (SELL, menunggu sinyal beli)</span>
@@ -242,7 +236,6 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `ethusdt_1d.csv`
 - **Total candle:** 3245
-- **Kondisi Pasar:** <span style="color:green">**Bullish**</span> (perubahan harga +491.27%, 50.1% waktu di atas EMA 200)
 - **Buy & Hold:** +491.27%
 - **Rekomendasi (return tertinggi):** EMA `10/20` → Return +7186.33%, MaxDD -46.34%
 - **Sinyal terakhir pada kombinasi ini:** <span style="color:green">**0 hari lalu** (BUY, masih holding)</span>
@@ -281,7 +274,6 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `linkusdt_1d.csv`
 - **Total candle:** 2728
-- **Kondisi Pasar:** <span style="color:gray">**Sideways/Mixed**</span> (perubahan harga +1547.19%, 47.8% waktu di atas EMA 200)
 - **Buy & Hold:** +1547.19%
 - **Rekomendasi (return tertinggi):** EMA `5/100` → Return +1614.49%, MaxDD -71.67%
 - **Sinyal terakhir pada kombinasi ini:** <span style="color:red">**48 hari lalu** (SELL, menunggu sinyal beli)</span>
@@ -320,7 +312,6 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `paxgusdt_1d.csv`
 - **Total candle:** 2138
-- **Kondisi Pasar:** <span style="color:green">**Bullish**</span> (perubahan harga +111.31%, 71.9% waktu di atas EMA 200)
 - **Buy & Hold:** +111.31%
 - **Rekomendasi (return tertinggi):** EMA `20/150` → Return +130.22%, MaxDD -8.78%
 - **Sinyal terakhir pada kombinasi ini:** <span style="color:red">**49 hari lalu** (SELL, menunggu sinyal beli)</span>
@@ -359,7 +350,6 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `solusdt_1d.csv`
 - **Total candle:** 2155
-- **Kondisi Pasar:** <span style="color:gray">**Sideways/Mixed**</span> (perubahan harga +2373.55%, 49.1% waktu di atas EMA 200)
 - **Buy & Hold:** +2373.55%
 - **Rekomendasi (return tertinggi):** EMA `9/26` → Return +19464.06%, MaxDD -44.22%
 - **Sinyal terakhir pada kombinasi ini:** <span style="color:green">**4 hari lalu** (BUY, masih holding)</span>
@@ -398,7 +388,6 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `trxusdt_1d.csv`
 - **Total candle:** 2947
-- **Kondisi Pasar:** <span style="color:green">**Bullish**</span> (perubahan harga +580.17%, 65.4% waktu di atas EMA 200)
 - **Buy & Hold:** +580.17%
 - **Rekomendasi (return tertinggi):** EMA `12/30` → Return +1222.82%, MaxDD -43.96%
 - **Sinyal terakhir pada kombinasi ini:** <span style="color:red">**32 hari lalu** (SELL, menunggu sinyal beli)</span>
@@ -437,7 +426,6 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `xlmusdt_1d.csv`
 - **Total candle:** 2958
-- **Kondisi Pasar:** <span style="color:red">**Bearish**</span> (perubahan harga -31.21%, 35.5% waktu di atas EMA 200)
 - **Buy & Hold:** -31.21%
 - **Rekomendasi (return tertinggi):** EMA `5/30` → Return +418.52%, MaxDD -62.23%
 - **Sinyal terakhir pada kombinasi ini:** <span style="color:green">**2 hari lalu** (BUY, masih holding)</span>
@@ -476,7 +464,6 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `xmrusd_daily_kraken.csv`
 - **Total candle:** 723
-- **Kondisi Pasar:** <span style="color:green">**Bullish**</span> (perubahan harga +104.30%, 71.9% waktu di atas EMA 200)
 - **Buy & Hold:** +104.30%
 - **Rekomendasi (return tertinggi):** EMA `12/20` → Return +167.80%, MaxDD -10.63%
 - **Sinyal terakhir pada kombinasi ini:** <span style="color:red">**41 hari lalu** (SELL, menunggu sinyal beli)</span>
@@ -515,7 +502,6 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `xrpusdt_1d.csv`
 - **Total candle:** 2985
-- **Kondisi Pasar:** <span style="color:gray">**Sideways/Mixed**</span> (perubahan harga +30.04%, 43.1% waktu di atas EMA 200)
 - **Buy & Hold:** +30.04%
 - **Rekomendasi (return tertinggi):** EMA `9/200` → Return +99.26%, MaxDD -50.56%
 - **Sinyal terakhir pada kombinasi ini:** <span style="color:red">**264 hari lalu** (SELL, menunggu sinyal beli)</span>
@@ -554,7 +540,6 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `zecusdt_1d.csv`
 - **Total candle:** 2664
-- **Kondisi Pasar:** <span style="color:gray">**Sideways/Mixed**</span> (perubahan harga +738.28%, 44.7% waktu di atas EMA 200)
 - **Buy & Hold:** +738.28%
 - **Rekomendasi (return tertinggi):** EMA `5/26` → Return +5612.39%, MaxDD -75.56%
 - **Sinyal terakhir pada kombinasi ini:** <span style="color:green">**0 hari lalu** (BUY, masih holding)</span>
