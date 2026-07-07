@@ -99,6 +99,42 @@ def load_csv(path):
     return rows
 
 
+def detect_market_condition(rows):
+    """
+    Tentukan kondisi bull/bear keseluruhan periode data berdasarkan:
+    - Perubahan harga close awal vs akhir (arah utama)
+    - Persentase waktu harga berada di atas EMA 200 (proxy tren jangka panjang)
+    Return dict: {label, price_change_pct, pct_time_above_ema200}
+    """
+    closes = [r['close'] for r in rows]
+    n = len(closes)
+
+    price_change_pct = (closes[-1] - closes[0]) / closes[0] * 100
+
+    if n > 200:
+        ema200 = ema_series(closes, 200)
+        above_count = sum(1 for i in range(200, n) if closes[i] > ema200[i])
+        pct_time_above = above_count / (n - 200) * 100
+    else:
+        pct_time_above = None
+
+    # Klasifikasi sederhana: gabungan arah harga keseluruhan + dominasi waktu di atas EMA200
+    if pct_time_above is not None:
+        if price_change_pct > 0 and pct_time_above >= 50:
+            label = "Bullish"
+        elif price_change_pct < 0 and pct_time_above < 50:
+            label = "Bearish"
+        else:
+            label = "Sideways/Mixed"
+    else:
+        label = "Bullish" if price_change_pct > 0 else "Bearish"
+
+    return {
+        "label": label,
+        "price_change_pct": price_change_pct,
+        "pct_time_above_ema200": pct_time_above,
+    }
+
 def ema_series(closes, span):
     alpha = 2 / (span + 1)
     ema = [closes[0]]
@@ -178,11 +214,24 @@ def backtest_dual_ema(closes, fast, slow, open_times=None):
         'current_position_status': current_position_status,
     }
 
+def _fmt_pct_plain(val):
+    sign = "+" if val > 0 else ""
+    return f"{sign}{val:.2f}%"
+
+
+def _days_label(days):
+    """Format angka hari: 0 -> 'Hari ini', selain itu '<N> hari lalu'."""
+    rounded = round(days)
+    if rounded <= 0:
+        return "Hari ini"
+    return f"{rounded} hari lalu"
+
+
 def _fmt_last_signal(r):
-    """Format ringkas plain-text: '<N>h (BUY)' dari hasil backtest_dual_ema."""
+    """Format ringkas plain-text: 'Hari ini (BUY)' atau '<N> hari lalu (BUY)'."""
     if r.get('days_since_last_signal') is None or r.get('last_signal_type') is None:
         return "-"
-    return f"{r['days_since_last_signal']:.0f}h ({r['last_signal_type']})"
+    return f"{_days_label(r['days_since_last_signal'])} ({r['last_signal_type']})"
 
 
 def _fmt_last_signal_rich(r):
@@ -191,7 +240,7 @@ def _fmt_last_signal_rich(r):
         return "-"
     sig_type = r['last_signal_type']
     color = "green" if sig_type == "BUY" else "red"
-    text = f"{r['days_since_last_signal']:.0f}h ({sig_type})"
+    text = f"{_days_label(r['days_since_last_signal'])} ({sig_type})"
     return f"[{color}]{text}[/{color}]"
 
 
@@ -287,20 +336,21 @@ def _fmt_pct(val):
 
 
 def _fmt_last_signal_md(r):
-    """Format untuk markdown: emoji hijau untuk BUY (masih holding), merah untuk SELL (menunggu beli)."""
+    """Format untuk markdown: warna hijau untuk BUY (masih holding), merah untuk SELL (menunggu beli)."""
     if r.get('days_since_last_signal') is None or r.get('last_signal_type') is None:
         return "-"
-    days = r['days_since_last_signal']
+    days_label = _days_label(r['days_since_last_signal'])
     sig_type = r['last_signal_type']
     status = "masih holding" if sig_type == "BUY" else "menunggu sinyal beli"
-    emoji = "🟢" if sig_type == "BUY" else "🔴"
-    return f'{emoji} **{days:.0f} hari lalu** ({sig_type}, {status})'
+    color = "green" if sig_type == "BUY" else "red"
+    return f'<span style="color:{color}">**{days_label}** ({sig_type}, {status})</span>'
 
 
-def generate_markdown_section(summary_with_detail):
+def generate_markdown_section(summary_with_detail, bullish, bearish, unknown):
     """
     Bangun konten markdown lengkap (tanpa header/footer README) dari hasil backtest.
-    summary_with_detail: list of (path, best, bh, detail)
+    summary_with_detail: list of (path, best, bh, detail) -- urutan asli, dipakai untuk Detail per Aset.
+    bullish, bearish, unknown: hasil split_and_sort_by_signal, dipakai untuk dua tabel ringkasan terpisah.
     """
     lines = []
     lines.append(f"**Fee yang digunakan:** {FEE_PCT}% per sisi ({2*FEE_PCT}% round-trip)")
@@ -308,37 +358,55 @@ def generate_markdown_section(summary_with_detail):
     lines.append("")
     lines.append("**Sinyal Terakhir** menunjukkan sudah berapa hari sejak crossover EMA terakhir "
                  "terjadi pada kombinasi tersebut, dihitung sampai candle paling akhir di data "
-                 "(BUY = masih dalam posisi terbuka, SELL = sudah keluar dan menunggu sinyal beli berikutnya).")
+                 "(BUY = masih dalam posisi terbuka, SELL = sudah keluar dan menunggu sinyal beli berikutnya). "
+                 "Kedua tabel di bawah diurutkan dari sinyal paling baru ke paling lama.")
     lines.append("")
 
-    # --- Tabel ringkasan utama di atas ---
-    lines.append("## Ringkasan Hasil")
-    lines.append("")
     headers = ["Pair", "Timeframe", "Total Candle", "EMA Terbaik",
                "Return", "Max DD", "Buy & Hold", "vs B&H", "Sinyal Terakhir"]
-    table_rows = []
-    for path, best, bh, detail in summary_with_detail:
-        pair, tf_label = parse_filename(path)
-        candle_count = detail["total_candle"] if detail else "-"
-        if best is None:
-            table_rows.append([pair, tf_label, candle_count, "-", "-", "-", _fmt_pct(bh), "-", "-"])
-        else:
-            beats = best['total_return_pct'] > bh
-            vs_label = "✅ Menang" if beats else "❌ Kalah"
-            sig_label = _fmt_last_signal_md(best)
-            table_rows.append([
-                f"**{pair}**", tf_label, candle_count,
-                f"`{best['fast']}/{best['slow']}`",
-                _fmt_pct(best['total_return_pct']),
-                f"{best['max_dd_pct']:.2f}%",
-                _fmt_pct(bh),
-                vs_label,
-                sig_label,
-            ])
-    lines.append(_md_table(headers, table_rows))
-    lines.append("")
 
-    # --- Detail per file ---
+    def _build_summary_table(group):
+        table_rows = []
+        for path, best, bh, detail in group:
+            pair, tf_label = parse_filename(path)
+            candle_count = detail["total_candle"] if detail else "-"
+            if best is None:
+                table_rows.append([pair, tf_label, candle_count, "-", "-", "-", _fmt_pct(bh), "-", "-"])
+            else:
+                beats = best['total_return_pct'] > bh
+                vs_label = "✅ Menang" if beats else "❌ Kalah"
+                sig_label = _fmt_last_signal_md(best)
+                table_rows.append([
+                    f"**{pair}**", tf_label, candle_count,
+                    f"`{best['fast']}/{best['slow']}`",
+                    _fmt_pct(best['total_return_pct']),
+                    f"{best['max_dd_pct']:.2f}%",
+                    _fmt_pct(bh),
+                    vs_label,
+                    sig_label,
+                ])
+        return _md_table(headers, table_rows)
+
+    # --- Dua tabel ringkasan terpisah, masing-masing terurut sinyal terbaru ---
+    if bullish:
+        lines.append("## Ringkasan Hasil -- Bullish (Sinyal BUY)")
+        lines.append("")
+        lines.append(_build_summary_table(bullish))
+        lines.append("")
+
+    if bearish:
+        lines.append("## Ringkasan Hasil -- Bearish (Sinyal SELL)")
+        lines.append("")
+        lines.append(_build_summary_table(bearish))
+        lines.append("")
+
+    if unknown:
+        lines.append("## Ringkasan Hasil -- Data Tidak Cukup / Tanpa Sinyal")
+        lines.append("")
+        lines.append(_build_summary_table(unknown))
+        lines.append("")
+
+    # --- Detail per file (urutan asli sesuai file yang diuji) ---
     lines.append("## Detail per Aset")
     lines.append("")
 
@@ -419,14 +487,14 @@ README_START_MARKER = "<!-- BACKTEST_RESULTS_START -->"
 README_END_MARKER = "<!-- BACKTEST_RESULTS_END -->"
 
 
-def write_readme(summary_with_detail, readme_path="README.md"):
+def write_readme(summary_with_detail, bullish, bearish, unknown, readme_path="README.md"):
     """
     Tulis/perbarui README.md:
     - Jika belum ada -> buat dengan intro + hasil + outro, dibungkus marker.
     - Jika sudah ada -> ganti HANYA konten di antara marker, pertahankan bagian lain
       yang mungkin sudah ditulis manual oleh pengguna di luar marker.
     """
-    body = generate_markdown_section(summary_with_detail)
+    body = generate_markdown_section(summary_with_detail, bullish, bearish, unknown)
     wrapped_body = f"{README_START_MARKER}\n\n{body}\n\n{README_END_MARKER}"
 
     if os.path.exists(readme_path):
@@ -474,6 +542,29 @@ def _print_rich_table(title, rows):
     console.print(table)
 
 
+def split_and_sort_by_signal(summary):
+    """
+    Pisahkan hasil jadi dua grup berdasarkan jenis sinyal terakhir:
+    - bullish_group: sinyal terakhir BUY (posisi masih terbuka)
+    - bearish_group: sinyal terakhir SELL (menunggu sinyal beli berikutnya)
+    Item tanpa best/detail (gagal) atau tanpa info sinyal masuk grup 'unknown'.
+    Setiap grup diurutkan dari sinyal PALING BARU (hari lebih kecil) ke yang lebih lama.
+    """
+    bullish, bearish, unknown = [], [], []
+    for item in summary:
+        path, best, bh, detail = item
+        if best is None or best.get('days_since_last_signal') is None:
+            unknown.append(item)
+        elif best['last_signal_type'] == 'BUY':
+            bullish.append(item)
+        else:
+            bearish.append(item)
+
+    bullish.sort(key=lambda item: item[1]['days_since_last_signal'])
+    bearish.sort(key=lambda item: item[1]['days_since_last_signal'])
+    return bullish, bearish, unknown
+
+
 def main():
     args = sys.argv[1:]
     detail_mode = False
@@ -512,8 +603,10 @@ def main():
             print("RINGKASAN -- semua file yang diuji")
             print("=" * 78)
 
-    if HAS_RICH:
-        table = Table(title="Result", box=box.ROUNDED, show_lines=True, title_style="bold magenta")
+    bullish, bearish, unknown = split_and_sort_by_signal(summary)
+
+    def _build_rich_table(title, group, border_style):
+        table = Table(title=title, box=box.ROUNDED, show_lines=True, title_style="bold magenta", border_style=border_style)
         table.add_column("Pair", style="bold cyan", no_wrap=True)
         table.add_column("Timeframe", style="cyan")
         table.add_column("EMA", justify="center", style="yellow")
@@ -523,7 +616,7 @@ def main():
         table.add_column("vs B&H", justify="center")
         table.add_column("Sinyal Terakhir", justify="right")
 
-        for path, best, bh, detail in summary:
+        for path, best, bh, detail in group:
             pair, tf_label = parse_filename(path)
 
             if best is None:
@@ -543,22 +636,40 @@ def main():
                 _fmt_last_signal_rich(best),
             ]
             table.add_row(*row)
-        console.print()
-        console.print(table)
-    else:
-        print("\nResult:")
-        for path, best, bh, detail in summary:
+        return table
+
+    def _print_plain_group(title, group):
+        print(f"\n{title}")
+        for path, best, bh, detail in group:
             pair, tf_label = parse_filename(path)
             if best is None:
                 print(f"{pair} Timeframe {tf_label}: (data tidak cukup untuk uji)")
             else:
                 sig = _fmt_last_signal(best)
-                extra = f"  | Sinyal Terakhir {sig}"
                 print(f"{pair} Timeframe {tf_label}: EMA {best['fast']}/{best['slow']}  "
-                      f"| Return {best['total_return_pct']:.2f}%  | MaxDD {best['max_dd_pct']:.2f}%  | B&H {bh:.2f}%{extra}")
+                      f"| Return {best['total_return_pct']:.2f}%  | MaxDD {best['max_dd_pct']:.2f}%  | B&H {bh:.2f}%"
+                      f"  | Sinyal Terakhir {sig}")
+
+    if HAS_RICH:
+        console.print()
+        if bullish:
+            console.print(_build_rich_table("Result -- Bullish (Sinyal BUY, terbaru di atas)", bullish, "green"))
+        if bearish:
+            console.print()
+            console.print(_build_rich_table("Result -- Bearish (Sinyal SELL, terbaru di atas)", bearish, "red"))
+        if unknown:
+            console.print()
+            console.print(_build_rich_table("Result -- Data tidak cukup / tanpa sinyal", unknown, "white"))
+    else:
+        if bullish:
+            _print_plain_group("Result -- Bullish (Sinyal BUY, terbaru di atas):", bullish)
+        if bearish:
+            _print_plain_group("Result -- Bearish (Sinyal SELL, terbaru di atas):", bearish)
+        if unknown:
+            _print_plain_group("Result -- Data tidak cukup / tanpa sinyal:", unknown)
 
     if detail_mode:
-        readme_path = write_readme(summary)
+        readme_path = write_readme(summary, bullish, bearish, unknown)
         msg = f"\nREADME.md diperbarui: {os.path.abspath(readme_path)}"
         console.print(f"[bold green]{msg}[/bold green]") if HAS_RICH else print(msg)
 
