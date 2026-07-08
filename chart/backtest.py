@@ -41,6 +41,12 @@ except ImportError:
 
 FEE_PCT = 0.15
 
+# Filter kualitas: kombinasi EMA dengan calmar di bawah ambang ini TIDAK dianggap
+# layak dijadikan "best" / sinyal utama, meskipun total return-nya tinggi.
+# Rasional: calmar rendah berarti return tsb ditebus oleh drawdown yang dalam --
+# secara risk-adjusted tidak sepadan untuk dijadikan acuan sinyal beli.
+MIN_CALMAR = 0.5
+
 # Direktori cache -- menyimpan hasil grid search per file CSV agar tidak
 # dihitung ulang jika file sumber belum berubah.
 CACHE_DIR = ".backtest_cache"
@@ -376,6 +382,10 @@ def run_one_file(path, verbose=True, collect_detail=False, use_cache=True):
         if use_cache:
             _save_cache(path, fingerprint, bh_return, results, results_calmar, total_candle)
 
+    # Filter kombinasi yang lolos ambang calmar minimum -- inilah kandidat yang
+    # layak dijadikan "best" / dasar sinyal utama.
+    qualified = [r for r in results if r['calmar'] >= MIN_CALMAR]
+
     if verbose:
         if HAS_RICH:
             _print_rich_table("TOP 10 berdasarkan Total Return", results[:10])
@@ -393,9 +403,17 @@ def run_one_file(path, verbose=True, collect_detail=False, use_cache=True):
                 sig = _fmt_last_signal(r)
                 print(f"{r['fast']:>5} {r['slow']:>5} {r['n_trades']:>7} {r['win_rate']:>7.1f}% {r['total_return_pct']:>11.2f}% {r['max_dd_pct']:>8.2f}% {r['calmar']:>8.2f} {sig:>16}")
 
-        best = results[0]
-        rekomendasi = f"\n>> Rekomendasi (return tertinggi): EMA {best['fast']}/{best['slow']}"
-        console.print(f"[bold green]{rekomendasi}[/bold green]") if HAS_RICH else print(rekomendasi)
+        if qualified:
+            best = qualified[0]
+            rekomendasi = (f"\n>> Rekomendasi (return tertinggi, calmar >= {MIN_CALMAR}): "
+                          f"EMA {best['fast']}/{best['slow']} (calmar={best['calmar']:.2f})")
+            console.print(f"[bold green]{rekomendasi}[/bold green]") if HAS_RICH else print(rekomendasi)
+        else:
+            best = None
+            peringatan = (f"\n>> Tidak ada kombinasi yang lolos ambang calmar minimum ({MIN_CALMAR}). "
+                         f"Semua sinyal return-tertinggi untuk aset ini ditolak karena risk-adjusted "
+                         f"return-nya buruk (drawdown terlalu dalam relatif terhadap return).")
+            console.print(f"[bold yellow]{peringatan}[/bold yellow]") if HAS_RICH else print(peringatan)
 
     detail = None
     if collect_detail:
@@ -405,7 +423,7 @@ def run_one_file(path, verbose=True, collect_detail=False, use_cache=True):
             "top10_calmar": results_calmar[:10],
         }
 
-    return path, results[0], bh_return, detail
+    return path, (qualified[0] if qualified else None), bh_return, detail
 
 
 def _md_table(headers, rows):
@@ -434,6 +452,36 @@ def _fmt_last_signal_md(r):
     return f'{dot} **{days_label}** ({sig_type}, {status})'
 
 
+def _calmar_tier_symbol(calmar):
+    """
+    Tentukan simbol tier berdasarkan nilai calmar absolut (bukan rank relatif),
+    supaya hasil konsisten terlepas dari berapa banyak aset yang diuji bersamaan.
+    calmar >= 10 -> ✅, 3 <= calmar < 10 -> ❗, calmar < 3 -> 🚫.
+    """
+    if calmar >= 10:
+        return "✅"
+    elif calmar >= 3:
+        return "❗"
+    else:
+        return "🚫"
+
+
+def _compute_calmar_ranks(summary):
+    """
+    Hitung rank calmar (1 = terbaik) lintas semua aset yang punya best result,
+    diurutkan dari calmar tertinggi ke terendah. Tier symbol dihitung dari nilai
+    calmar absolut (lihat _calmar_tier_symbol), bukan posisi rank.
+    Return dict {path: (rank, total, symbol)}.
+    """
+    scored = [(path, best['calmar']) for path, best, bh, detail in summary if best is not None]
+    scored.sort(key=lambda x: x[1], reverse=True)
+    total = len(scored)
+    ranks = {}
+    for i, (path, calmar) in enumerate(scored, start=1):
+        ranks[path] = (i, total, _calmar_tier_symbol(calmar))
+    return ranks
+
+
 def generate_markdown_section(summary_with_detail, bullish, bearish, unknown):
     """
     Bangun konten markdown lengkap (tanpa header/footer README) dari hasil backtest.
@@ -451,7 +499,9 @@ def generate_markdown_section(summary_with_detail, bullish, bearish, unknown):
     lines.append("")
 
     headers = ["Pair", "Timeframe", "Total Candle", "EMA Terbaik",
-               "Return", "Max DD", "Buy & Hold", "vs B&H", "Sinyal Terakhir"]
+               "Return", "Max DD", "Buy & Hold", "Calmar Rank", "Sinyal Terakhir"]
+
+    calmar_ranks = _compute_calmar_ranks(summary_with_detail)
 
     def _build_summary_table(group):
         table_rows = []
@@ -461,8 +511,12 @@ def generate_markdown_section(summary_with_detail, bullish, bearish, unknown):
             if best is None:
                 table_rows.append([pair, tf_label, candle_count, "-", "-", "-", _fmt_pct(bh), "-", "-"])
             else:
-                beats = best['total_return_pct'] > bh
-                vs_label = "✅ Menang" if beats else "❌ Kalah"
+                rank_info = calmar_ranks.get(path)
+                if rank_info:
+                    rank, total, symbol = rank_info
+                    rank_label = f"{symbol} #{rank}"
+                else:
+                    rank_label = "-"
                 sig_label = _fmt_last_signal_md(best)
                 table_rows.append([
                     f"**{pair}**", tf_label, candle_count,
@@ -470,7 +524,7 @@ def generate_markdown_section(summary_with_detail, bullish, bearish, unknown):
                     _fmt_pct(best['total_return_pct']),
                     f"{best['max_dd_pct']:.2f}%",
                     _fmt_pct(bh),
-                    vs_label,
+                    rank_label,
                     sig_label,
                 ])
         return _md_table(headers, table_rows)
@@ -697,6 +751,7 @@ def main():
             print("=" * 78)
 
     bullish, bearish, unknown = split_and_sort_by_signal(summary)
+    calmar_ranks = _compute_calmar_ranks(summary)
 
     def _build_rich_table(title, group, border_style):
         table = Table(title=title, box=box.ROUNDED, show_lines=True, title_style="bold magenta", border_style=border_style)
@@ -706,7 +761,7 @@ def main():
         table.add_column("Return%", justify="right")
         table.add_column("MaxDD%", justify="right", style="red")
         table.add_column("B&H%", justify="right")
-        table.add_column("vs B&H", justify="center")
+        table.add_column("Calmar Rank", justify="center")
         table.add_column("Sinyal Terakhir", justify="right")
 
         for path, best, bh, detail in group:
@@ -718,14 +773,14 @@ def main():
                 continue
 
             return_style = "bold green" if best['total_return_pct'] > 0 else "bold red"
-            beats_bh = best['total_return_pct'] > bh
-            vs_bh_label = "[green]MENANG[/green]" if beats_bh else "[red]KALAH[/red]"
+            rank_info = calmar_ranks.get(path)
+            rank_label = f"{rank_info[2]} #{rank_info[0]}" if rank_info else "-"
             row = [pair, tf_label,
                 f"{best['fast']}/{best['slow']}",
                 f"[{return_style}]{best['total_return_pct']:.2f}%[/{return_style}]",
                 f"{best['max_dd_pct']:.2f}%",
                 f"{bh:.2f}%",
-                vs_bh_label,
+                rank_label,
                 _fmt_last_signal_rich(best),
             ]
             table.add_row(*row)
@@ -739,8 +794,10 @@ def main():
                 print(f"{pair} Timeframe {tf_label}: (data tidak cukup untuk uji)")
             else:
                 sig = _fmt_last_signal(best)
+                rank_info = calmar_ranks.get(path)
+                rank_label = f"{rank_info[2]} #{rank_info[0]}" if rank_info else "-"
                 print(f"{pair} Timeframe {tf_label}: EMA {best['fast']}/{best['slow']}  "
-                      f"| Return {best['total_return_pct']:.2f}%  | MaxDD {best['max_dd_pct']:.2f}%  | B&H {bh:.2f}%"
+                      f"| Return {best['total_return_pct']:.2f}%  | MaxDD {best['max_dd_pct']:.2f}%  | Calmar Rank {rank_label}"
                       f"  | Sinyal Terakhir {sig}")
 
     if HAS_RICH:

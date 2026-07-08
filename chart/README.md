@@ -23,33 +23,33 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 ## Ringkasan Hasil -- Bullish (Sinyal BUY)
 
-| Pair | Timeframe | Total Candle | EMA Terbaik | Return | Max DD | Buy & Hold | vs B&H | Sinyal Terakhir |
+| Pair | Timeframe | Total Candle | EMA Terbaik | Return | Max DD | Buy & Hold | Calmar Rank | Sinyal Terakhir |
 |---|---|---|---|---|---|---|---|---|
-| **ZECUSDT** | 1 Day | 2666 | `9/20` | +5984.22% | -51.62% | +777.04% | ✅ Menang | 🟢 **1 hari lalu** (BUY, masih holding) |
-| **ETHUSDT** | 1 Day | 3247 | `10/20` | +7128.22% | -46.34% | +486.57% | ✅ Menang | 🟢 **2 hari lalu** (BUY, masih holding) |
-| **UNIUSDT** | 1 Day | 2120 | `25/26` | +1289.64% | -35.67% | -7.79% | ✅ Menang | 🟢 **2 hari lalu** (BUY, masih holding) |
-| **XLMUSDT** | 1 Day | 2960 | `5/30` | +381.19% | -64.95% | -36.15% | ✅ Menang | 🟢 **4 hari lalu** (BUY, masih holding) |
-| **SOLUSDT** | 1 Day | 2157 | `9/26` | +19221.18% | -44.22% | +2342.93% | ✅ Menang | 🟢 **6 hari lalu** (BUY, masih holding) |
+| **ZECUSDT** | 1 Day | 2666 | `9/20` | +5984.22% | -51.62% | +777.04% | ✅ #8 | 🟢 **1 hari lalu** (BUY, masih holding) |
+| **ETHUSDT** | 1 Day | 3247 | `10/20` | +7128.22% | -46.34% | +486.57% | ✅ #5 | 🟢 **2 hari lalu** (BUY, masih holding) |
+| **UNIUSDT** | 1 Day | 2120 | `25/26` | +1289.64% | -35.67% | -7.79% | ✅ #10 | 🟢 **2 hari lalu** (BUY, masih holding) |
+| **XLMUSDT** | 1 Day | 2960 | `5/30` | +381.19% | -64.95% | -36.15% | ❗ #17 | 🟢 **4 hari lalu** (BUY, masih holding) |
+| **SOLUSDT** | 1 Day | 2157 | `9/26` | +19221.18% | -44.22% | +2342.93% | ✅ #2 | 🟢 **6 hari lalu** (BUY, masih holding) |
 
 ## Ringkasan Hasil -- Bearish (Sinyal SELL)
 
-| Pair | Timeframe | Total Candle | EMA Terbaik | Return | Max DD | Buy & Hold | vs B&H | Sinyal Terakhir |
+| Pair | Timeframe | Total Candle | EMA Terbaik | Return | Max DD | Buy & Hold | Calmar Rank | Sinyal Terakhir |
 |---|---|---|---|---|---|---|---|---|
-| **NEARUSDT** | 1 Day | 2093 | `5/26` | +1196.44% | -72.03% | +69.19% | ✅ Menang | 🔴 **15 hari lalu** (SELL, menunggu sinyal beli) |
-| **BNBUSDT** | 1 Day | 3166 | `10/26` | +30822.68% | -31.91% | +36616.74% | ❌ Kalah | 🔴 **33 hari lalu** (SELL, menunggu sinyal beli) |
-| **HBARUSDT** | 1 Day | 2474 | `12/30` | +5226.36% | -34.93% | +99.41% | ✅ Menang | 🔴 **34 hari lalu** (SELL, menunggu sinyal beli) |
-| **TRXUSDT** | 1 Day | 2949 | `12/30` | +1222.82% | -43.96% | +585.33% | ✅ Menang | 🔴 **34 hari lalu** (SELL, menunggu sinyal beli) |
-| **SUIUSDT** | 1 Day | 1162 | `5/50` | +646.47% | -51.10% | -48.07% | ✅ Menang | 🔴 **41 hari lalu** (SELL, menunggu sinyal beli) |
-| **DOGEUSDT** | 1 Day | 2560 | `15/26` | +18176.70% | -56.62% | +1816.75% | ✅ Menang | 🔴 **42 hari lalu** (SELL, menunggu sinyal beli) |
-| **XMRUSD** | 1 Day | 725 | `12/20` | +167.80% | -10.63% | +109.43% | ✅ Menang | 🔴 **43 hari lalu** (SELL, menunggu sinyal beli) |
-| **BTCUSDT** | 1 Day | 3247 | `10/30` | +6804.41% | -52.55% | +1378.71% | ✅ Menang | 🔴 **46 hari lalu** (SELL, menunggu sinyal beli) |
-| **ADAUSDT** | 1 Day | 3004 | `15/40` | +9390.82% | -34.42% | -28.03% | ✅ Menang | 🔴 **47 hari lalu** (SELL, menunggu sinyal beli) |
-| **LTCUSDT** | 1 Day | 3129 | `15/40` | +209.25% | -56.14% | -84.86% | ✅ Menang | 🔴 **48 hari lalu** (SELL, menunggu sinyal beli) |
-| **LINKUSDT** | 1 Day | 2730 | `5/100` | +1614.49% | -71.67% | +1505.92% | ✅ Menang | 🔴 **50 hari lalu** (SELL, menunggu sinyal beli) |
-| **PAXGUSDT** | 1 Day | 2140 | `20/150` | +130.22% | -8.78% | +106.99% | ✅ Menang | 🔴 **51 hari lalu** (SELL, menunggu sinyal beli) |
-| **AVAXUSDT** | 1 Day | 2115 | `15/75` | +3356.67% | -33.05% | +25.75% | ✅ Menang | 🔴 **53 hari lalu** (SELL, menunggu sinyal beli) |
-| **BCHUSDT** | 1 Day | 2414 | `25/75` | +200.06% | -55.10% | +10.11% | ✅ Menang | 🔴 **155 hari lalu** (SELL, menunggu sinyal beli) |
-| **XRPUSDT** | 1 Day | 2987 | `9/200` | +99.26% | -50.56% | +24.96% | ✅ Menang | 🔴 **266 hari lalu** (SELL, menunggu sinyal beli) |
+| **NEARUSDT** | 1 Day | 2093 | `5/26` | +1196.44% | -72.03% | +69.19% | ✅ #13 | 🔴 **15 hari lalu** (SELL, menunggu sinyal beli) |
+| **BNBUSDT** | 1 Day | 3166 | `10/26` | +30822.68% | -31.91% | +36616.74% | ✅ #1 | 🔴 **33 hari lalu** (SELL, menunggu sinyal beli) |
+| **HBARUSDT** | 1 Day | 2474 | `12/30` | +5226.36% | -34.93% | +99.41% | ✅ #6 | 🔴 **34 hari lalu** (SELL, menunggu sinyal beli) |
+| **TRXUSDT** | 1 Day | 2949 | `12/30` | +1222.82% | -43.96% | +585.33% | ✅ #11 | 🔴 **34 hari lalu** (SELL, menunggu sinyal beli) |
+| **SUIUSDT** | 1 Day | 1162 | `5/50` | +646.47% | -51.10% | -48.07% | ✅ #16 | 🔴 **41 hari lalu** (SELL, menunggu sinyal beli) |
+| **DOGEUSDT** | 1 Day | 2560 | `15/26` | +18176.70% | -56.62% | +1816.75% | ✅ #3 | 🔴 **42 hari lalu** (SELL, menunggu sinyal beli) |
+| **XMRUSD** | 1 Day | 725 | `12/20` | +167.80% | -10.63% | +109.43% | ✅ #14 | 🔴 **43 hari lalu** (SELL, menunggu sinyal beli) |
+| **BTCUSDT** | 1 Day | 3247 | `10/30` | +6804.41% | -52.55% | +1378.71% | ✅ #7 | 🔴 **46 hari lalu** (SELL, menunggu sinyal beli) |
+| **ADAUSDT** | 1 Day | 3004 | `15/40` | +9390.82% | -34.42% | -28.03% | ✅ #4 | 🔴 **47 hari lalu** (SELL, menunggu sinyal beli) |
+| **LTCUSDT** | 1 Day | 3129 | `15/40` | +209.25% | -56.14% | -84.86% | ❗ #18 | 🔴 **48 hari lalu** (SELL, menunggu sinyal beli) |
+| **LINKUSDT** | 1 Day | 2730 | `5/100` | +1614.49% | -71.67% | +1505.92% | ✅ #12 | 🔴 **50 hari lalu** (SELL, menunggu sinyal beli) |
+| **PAXGUSDT** | 1 Day | 2140 | `20/150` | +130.22% | -8.78% | +106.99% | ✅ #15 | 🔴 **51 hari lalu** (SELL, menunggu sinyal beli) |
+| **AVAXUSDT** | 1 Day | 2115 | `15/75` | +3356.67% | -33.05% | +25.75% | ✅ #9 | 🔴 **53 hari lalu** (SELL, menunggu sinyal beli) |
+| **BCHUSDT** | 1 Day | 2414 | `25/75` | +200.06% | -55.10% | +10.11% | ❗ #19 | 🔴 **155 hari lalu** (SELL, menunggu sinyal beli) |
+| **XRPUSDT** | 1 Day | 2987 | `9/200` | +99.26% | -50.56% | +24.96% | 🚫 #20 | 🔴 **266 hari lalu** (SELL, menunggu sinyal beli) |
 
 ## Detail per Aset
 
