@@ -1,2 +1,4 @@
 chart/*.csv
 !chart/host/*.csv
+chart/.backtest_cache/
+**/.backtest_cache/

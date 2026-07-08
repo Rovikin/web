@@ -23,6 +23,8 @@ yang diperbarui -- konten lain yang Anda tulis manual di luar marker tetap aman.
 """
 import csv
 import glob
+import hashlib
+import json
 import os
 import re
 import sys
@@ -38,6 +40,11 @@ except ImportError:
     console = None
 
 FEE_PCT = 0.15
+
+# Direktori cache -- menyimpan hasil grid search per file CSV agar tidak
+# dihitung ulang jika file sumber belum berubah.
+CACHE_DIR = ".backtest_cache"
+CACHE_VERSION = 1  # naikkan jika format/logic hasil berubah, agar cache lama otomatis diabaikan
 
 # Grid pencarian -- bisa diubah sesuai kebutuhan
 FAST_CANDIDATES = [5, 8, 9, 10, 12, 15, 20, 25, 30, 40]
@@ -244,49 +251,130 @@ def _fmt_last_signal_rich(r):
     return f"[{color}]{text}[/{color}]"
 
 
-def run_one_file(path, verbose=True, collect_detail=False):
+def _file_fingerprint(path):
+    """
+    Hitung fingerprint file CSV berdasarkan ukuran + hash konten (blake2b),
+    dikombinasikan dengan grid EMA & versi cache supaya cache otomatis basi
+    kalau file berubah ATAU grid parameter/logic berubah.
+    """
+    stat = os.stat(path)
+    hasher = hashlib.blake2b(digest_size=16)
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            hasher.update(chunk)
+    content_hash = hasher.hexdigest()
+
+    grid_signature = json.dumps(
+        {"fast": FAST_CANDIDATES, "slow": SLOW_CANDIDATES, "fee": FEE_PCT, "v": CACHE_VERSION},
+        sort_keys=True,
+    )
+    grid_hash = hashlib.blake2b(grid_signature.encode("utf-8"), digest_size=8).hexdigest()
+
+    return f"{content_hash}_{grid_hash}_{stat.st_size}"
+
+
+def _cache_path_for(path):
+    base = os.path.basename(path)
+    safe_base = re.sub(r'[^A-Za-z0-9_.-]', '_', base)
+    return os.path.join(CACHE_DIR, f"{safe_base}.json")
+
+
+def _load_cache(path, fingerprint):
+    """Coba muat hasil dari cache. Return dict hasil atau None jika cache tidak ada/tidak valid."""
+    cache_file = _cache_path_for(path)
+    if not os.path.exists(cache_file):
+        return None
+    try:
+        with open(cache_file, "r", encoding="utf-8") as f:
+            cached = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    if cached.get("fingerprint") != fingerprint:
+        return None
+
+    return cached
+
+
+def _save_cache(path, fingerprint, bh_return, results, results_calmar, total_candle):
+    """Simpan hasil grid search ke cache sebagai JSON."""
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    cache_file = _cache_path_for(path)
+    payload = {
+        "fingerprint": fingerprint,
+        "bh_return": bh_return,
+        "total_candle": total_candle,
+        "results": results,
+        "results_calmar": results_calmar,
+    }
+    tmp_file = cache_file + ".tmp"
+    with open(tmp_file, "w", encoding="utf-8") as f:
+        json.dump(payload, f)
+    os.replace(tmp_file, cache_file)
+
+
+def run_one_file(path, verbose=True, collect_detail=False, use_cache=True):
     """
     Jalankan optimasi penuh untuk satu file CSV.
     Return (path, best_result_or_None, bh_return, detail_dict_or_None).
     detail_dict berisi top10_return & top10_calmar -- dipakai untuk render markdown.
     """
-    rows = load_csv(path)
-    closes = [r['close'] for r in rows]
-    open_times = [r['open_time'] for r in rows]
+    fingerprint = _file_fingerprint(path) if use_cache else None
+    cached = _load_cache(path, fingerprint) if use_cache else None
 
-    bh_return = (closes[-1] - closes[0]) / closes[0] * 100
+    if cached is not None:
+        bh_return = cached["bh_return"]
+        total_candle = cached["total_candle"]
+        results = cached["results"]
+        results_calmar = cached["results_calmar"]
+        from_cache = True
+    else:
+        from_cache = False
+        rows = load_csv(path)
+        closes = [r['close'] for r in rows]
+        open_times = [r['open_time'] for r in rows]
+        total_candle = len(rows)
+
+        bh_return = (closes[-1] - closes[0]) / closes[0] * 100
 
     if verbose:
+        cache_note = " [dari cache]" if from_cache else ""
         if HAS_RICH:
-            console.print(f"\n[bold cyan]File[/bold cyan]        : {path}")
-            console.print(f"[bold cyan]Total candle[/bold cyan]: {len(rows)}")
+            console.print(f"\n[bold cyan]File[/bold cyan]        : {path}{cache_note}")
+            console.print(f"[bold cyan]Total candle[/bold cyan]: {total_candle}")
             console.print(f"[bold cyan]Fee[/bold cyan]         : {FEE_PCT}% per sisi ({2*FEE_PCT}% round-trip)")
             console.print(f"[bold cyan]Buy & Hold[/bold cyan]  : {bh_return:.2f}%")
-            console.print(f"Mencoba {len(FAST_CANDIDATES) * len(SLOW_CANDIDATES)} kombinasi EMA...\n")
+            if not from_cache:
+                console.print(f"Mencoba {len(FAST_CANDIDATES) * len(SLOW_CANDIDATES)} kombinasi EMA...\n")
         else:
-            print(f"File        : {path}")
-            print(f"Total candle: {len(rows)}")
+            print(f"File        : {path}{cache_note}")
+            print(f"Total candle: {total_candle}")
             print(f"Fee         : {FEE_PCT}% per sisi ({2*FEE_PCT}% round-trip)")
             print(f"Buy & Hold  : {bh_return:.2f}%")
-            print(f"Mencoba {len(FAST_CANDIDATES) * len(SLOW_CANDIDATES)} kombinasi EMA...\n")
+            if not from_cache:
+                print(f"Mencoba {len(FAST_CANDIDATES) * len(SLOW_CANDIDATES)} kombinasi EMA...\n")
 
-    results = []
-    for fast in FAST_CANDIDATES:
-        for slow in SLOW_CANDIDATES:
-            if fast >= slow:
-                continue
-            r = backtest_dual_ema(closes, fast, slow, open_times=open_times)
-            if r:
-                results.append(r)
+    if not from_cache:
+        results = []
+        for fast in FAST_CANDIDATES:
+            for slow in SLOW_CANDIDATES:
+                if fast >= slow:
+                    continue
+                r = backtest_dual_ema(closes, fast, slow, open_times=open_times)
+                if r:
+                    results.append(r)
 
-    if not results:
-        if verbose:
-            msg = "Tidak ada kombinasi yang menghasilkan trade cukup."
-            console.print(f"[red]{msg}[/red]") if HAS_RICH else print(msg)
-        return path, None, bh_return, None
+        if not results:
+            if verbose:
+                msg = "Tidak ada kombinasi yang menghasilkan trade cukup."
+                console.print(f"[red]{msg}[/red]") if HAS_RICH else print(msg)
+            return path, None, bh_return, None
 
-    results.sort(key=lambda x: x['total_return_pct'], reverse=True)
-    results_calmar = sorted(results, key=lambda x: x['calmar'], reverse=True)
+        results.sort(key=lambda x: x['total_return_pct'], reverse=True)
+        results_calmar = sorted(results, key=lambda x: x['calmar'], reverse=True)
+
+        if use_cache:
+            _save_cache(path, fingerprint, bh_return, results, results_calmar, total_candle)
 
     if verbose:
         if HAS_RICH:
@@ -312,7 +400,7 @@ def run_one_file(path, verbose=True, collect_detail=False):
     detail = None
     if collect_detail:
         detail = {
-            "total_candle": len(rows),
+            "total_candle": total_candle,
             "top10_return": results[:10],
             "top10_calmar": results_calmar[:10],
         }
@@ -572,6 +660,11 @@ def main():
         detail_mode = True
         args.remove("--detail")
 
+    use_cache = True
+    if "--no-cache" in args:
+        use_cache = False
+        args.remove("--no-cache")
+
     if args:
         paths = args
     else:
@@ -592,7 +685,7 @@ def main():
     for i, path in enumerate(paths):
         if detail_mode and i > 0:
             (console.rule() if HAS_RICH else print("\n" + "=" * 78 + "\n"))
-        p, best, bh, detail = run_one_file(path, verbose=detail_mode, collect_detail=detail_mode)
+        p, best, bh, detail = run_one_file(path, verbose=detail_mode, collect_detail=detail_mode, use_cache=use_cache)
         summary.append((p, best, bh, detail))
 
     if detail_mode:
