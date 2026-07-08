@@ -272,6 +272,7 @@ def sync_kraken(pair, interval, output_file):
     ohlc_raw = result[pair_key[0]]
     fetched_count = len(ohlc_raw)
     new_count = 0
+    now_ms = int(time.time() * 1000)
 
     for entry in ohlc_raw:
         ts, o, h, l, c, vwap, vol, count = entry
@@ -285,10 +286,19 @@ def sync_kraken(pair, interval, output_file):
             "open_time": open_time,
             "open": o, "high": h, "low": l, "close": c,
             "close_time": close_time,
-            "is_closed": True,
+            # Kraken tidak memberi status closed/belum secara eksplisit --
+            # candle dianggap closed HANYA jika close_time (dihitung manual di
+            # atas) sudah lewat waktu sekarang. Sebelumnya nilai ini di-hardcode
+            # True, sehingga candle hari berjalan (harga belum final) ikut
+            # tersimpan seolah sudah closed -- match dengan temuan empiris
+            # sebelumnya (candle terakhir berubah nilainya antar unduhan).
+            "is_closed": close_time < now_ms,
         }
 
     final_rows = sorted(existing.values(), key=lambda x: x["open_time"])
+    # Buang candle yang belum closed sebelum disimpan -- konsisten dengan
+    # perlakuan binance_klines_to_rows() untuk sumber Binance.
+    final_rows = [r for r in final_rows if r["is_closed"]]
     save_local_data(output_file, final_rows)
 
     log(f"Snapshot Kraken: {fetched_count} candle diterima, {new_count} di antaranya baru.")
