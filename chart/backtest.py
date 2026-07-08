@@ -776,7 +776,28 @@ def main():
             print("=" * 78)
 
     bullish, bearish, unknown = split_and_sort_by_signal(summary)
-    calmar_ranks = _compute_calmar_ranks(summary)
+
+    # PENTING: rank calmar HARUS dihitung dari seluruh populasi file .csv yang
+    # ada di direktori (mis. 20 aset), bukan hanya dari subset yang kebetulan
+    # diberikan lewat argumen (paths). Sebelumnya rank dihitung dari `summary`
+    # (= hanya subset paths), sehingga menjalankan "python backtest.py file1
+    # file2 ..." menghasilkan rank #1..#N yang salah -- relatif terhadap subset
+    # kecil itu, bukan terhadap seluruh populasi aset yang biasa dipantau.
+    # Contoh nyata: SOLUSDT tampil #1 saat dijalankan dengan 4 file saja,
+    # padahal rank sebenarnya di antara 20 aset adalah #2.
+    all_paths = find_csv_files()
+    if set(all_paths) != set(paths):
+        rank_summary = []
+        for p in all_paths:
+            if p in [s[0] for s in summary]:
+                # sudah dihitung barusan, pakai ulang hasilnya (hindari hitung dobel)
+                rank_summary.append(next(s for s in summary if s[0] == p))
+            else:
+                rank_summary.append(run_one_file(p, verbose=False, collect_detail=False, use_cache=use_cache))
+    else:
+        rank_summary = summary
+
+    calmar_ranks = _compute_calmar_ranks(rank_summary)
 
     def _build_rich_table(title, group, border_style):
         table = Table(title=title, box=box.ROUNDED, show_lines=True, title_style="bold magenta", border_style=border_style)
