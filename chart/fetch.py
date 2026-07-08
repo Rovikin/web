@@ -68,6 +68,19 @@ BINANCE_LIMIT = 1000
 VALID_INTERVALS = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h",
                     "12h", "1d", "3d", "1w", "1M"]
 
+# Durasi tiap interval dalam milidetik -- dipakai untuk menghitung kapan candle
+# BERIKUTNYA seharusnya closed, supaya sync_binance/sync_kraken bisa melewati
+# request jaringan sepenuhnya jika dipastikan belum ada candle baru yang mungkin
+# closed sejak data lokal terakhir disimpan. (1M didekati 30 hari -- cukup untuk
+# tujuan ini karena hanya dipakai sebagai ambang MINIMUM sebelum re-check ke
+# server, bukan untuk keakuratan kalender penuh.)
+INTERVAL_MS = {
+    "1m": 60_000, "3m": 3*60_000, "5m": 5*60_000, "15m": 15*60_000, "30m": 30*60_000,
+    "1h": 3_600_000, "2h": 2*3_600_000, "4h": 4*3_600_000, "6h": 6*3_600_000,
+    "8h": 8*3_600_000, "12h": 12*3_600_000,
+    "1d": 86_400_000, "3d": 3*86_400_000, "1w": 7*86_400_000, "1M": 30*86_400_000,
+}
+
 KRAKEN_BASE_URL = "https://api.kraken.com/0/public/OHLC"
 KRAKEN_INTERVAL_MAP = {"1d": 1440}  # baru dukung daily untuk saat ini
 
@@ -75,6 +88,29 @@ FIELDNAMES = ["open_time", "open", "high", "low", "close", "close_time", "is_clo
 
 # Pair yang HARUS lewat Kraken karena sudah di-delisting dari Binance
 KRAKEN_ONLY_PAIRS = {"XMRUSD", "XMRUSDT"}
+
+
+def next_candle_due_at(last_open_time_ms, interval):
+    """
+    Hitung kapan (epoch ms) candle BERIKUTNYA setelah last_open_time_ms
+    seharusnya closed. Dipakai sebagai syarat sebelum melakukan request
+    jaringan sama sekali -- jika waktu sekarang belum melewati titik ini,
+    dipastikan tidak ada candle baru yang bisa closed, sehingga request ke
+    server (Binance/Kraken) bisa dilewati sepenuhnya.
+
+    last_open_time_ms adalah open_time candle TERAKHIR yang sudah tersimpan
+    (dan sudah dipastikan closed). Candle berikutnya baru closed setelah
+    1 step penuh lagi sejak candle itu ditutup, yaitu di
+    last_open_time_ms + 2*step (buka candle berikutnya di +1*step, tutup di
+    +2*step). Ditambah buffer kecil (1% dari step, minimum 30 detik) untuk
+    toleransi jeda waktu server.
+    """
+    step = INTERVAL_MS.get(interval)
+    if step is None:
+        return None  # interval tak dikenal -- aman: selalu request seperti biasa
+    buffer_ms = max(30_000, int(step * 0.01))
+    return last_open_time_ms + (2 * step) + buffer_ms
+
 
 
 def log(msg):
@@ -182,6 +218,19 @@ def sync_binance(pair, interval, output_file):
     last_stored = existing[-1]
     start_ms = last_stored["open_time"]
 
+    # Cek dulu: apakah candle BERIKUTNYA sudah mungkin closed? Jika belum,
+    # tidak ada gunanya melakukan request ke Binance sama sekali -- hasilnya
+    # dipastikan kosong (candle terakhir yang tersimpan masih yang terbaru
+    # yang mungkin closed). Ini menghindari request jaringan sia-sia setiap
+    # kali script dijalankan berulang dalam rentang waktu pendek.
+    due_at = next_candle_due_at(start_ms, interval)
+    now_ms = int(time.time() * 1000)
+    if due_at is not None and now_ms < due_at:
+        wait_min = (due_at - now_ms) / 60_000
+        log(f"Data lokal {pair} [{interval}] sudah up-to-date -- candle berikutnya "
+            f"baru mungkin closed dalam ~{wait_min:.0f} menit lagi. Request ke Binance dilewati.")
+        return existing
+
     log(f"Data lokal ditemukan ({len(existing)} candle, {output_file}).")
     log(f"Sinkronisasi: mengecek candle baru sejak "
         f"{datetime.fromtimestamp(start_ms/1000, tz=timezone.utc).strftime('%Y-%m-%d %H:%M')}...")
@@ -252,6 +301,18 @@ def sync_kraken(pair, interval, output_file):
         log(f"Data lokal ditemukan: {len(existing)} candle tersimpan di {output_file}.")
         log(f"  Rentang tersimpan saat ini: {time.strftime('%Y-%m-%d', time.gmtime(oldest/1000))} "
             f"s/d {time.strftime('%Y-%m-%d', time.gmtime(newest/1000))}")
+
+        # Sama seperti sync_binance: lewati request ke Kraken sepenuhnya jika
+        # dipastikan belum ada candle baru yang mungkin closed sejak data
+        # lokal terakhir. Kraken hanya mendukung interval harian saat ini,
+        # tapi tetap dihitung generik lewat INTERVAL_MS/next_candle_due_at.
+        due_at = next_candle_due_at(newest, interval)
+        now_ms = int(time.time() * 1000)
+        if due_at is not None and now_ms < due_at:
+            wait_min = (due_at - now_ms) / 60_000
+            log(f"Data lokal {pair} [{interval}] sudah up-to-date -- candle berikutnya "
+                f"baru mungkin closed dalam ~{wait_min:.0f} menit lagi. Request ke Kraken dilewati.")
+            return existing_list
 
     log(f"Mengambil snapshot {720} candle terbaru {pair} dari Kraken...")
     data = kraken_fetch_ohlc(pair, kraken_interval)
