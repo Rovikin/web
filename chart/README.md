@@ -41,7 +41,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 | **TRXUSDT** | 1 Day | 2949 | `12/30` | +1222.82% | -43.96% | +585.33% | ⚠️ #11 | 🔴 **34 hari lalu** (SELL, menunggu sinyal beli) |
 | **SUIUSDT** | 1 Day | 1162 | `5/50` | +646.47% | -51.10% | -48.07% | ⚠️ #16 | 🔴 **41 hari lalu** (SELL, menunggu sinyal beli) |
 | **DOGEUSDT** | 1 Day | 2560 | `15/26` | +18176.70% | -56.62% | +1816.75% | ✅ #3 | 🔴 **42 hari lalu** (SELL, menunggu sinyal beli) |
-| **XMRUSD** | 1 Day | 725 | `12/20` | +167.80% | -10.63% | +107.53% | ⚠️ #14 | 🔴 **43 hari lalu** (SELL, menunggu sinyal beli) |
+| **XMRUSD** | 1 Day | 725 | `12/20` | +167.80% | -10.63% | +107.28% | ⚠️ #14 | 🔴 **43 hari lalu** (SELL, menunggu sinyal beli) |
 | **BTCUSDT** | 1 Day | 3247 | `10/30` | +6804.41% | -52.55% | +1378.71% | ✅ #7 | 🔴 **46 hari lalu** (SELL, menunggu sinyal beli) |
 | **ADAUSDT** | 1 Day | 3004 | `15/40` | +9390.82% | -34.42% | -28.03% | ✅ #4 | 🔴 **47 hari lalu** (SELL, menunggu sinyal beli) |
 | **LTCUSDT** | 1 Day | 3129 | `15/40` | +209.25% | -56.14% | -84.86% | ⛔ #18 | 🔴 **48 hari lalu** (SELL, menunggu sinyal beli) |
@@ -703,7 +703,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `xmrusd_daily_kraken.csv`
 - **Total candle:** 725
-- **Buy & Hold:** +107.53%
+- **Buy & Hold:** +107.28%
 - **Rekomendasi (return tertinggi):** EMA `12/20` → Return +167.80%, MaxDD -10.63%
 - **Sinyal terakhir pada kombinasi ini:** 🔴 **43 hari lalu** (SELL, menunggu sinyal beli)
 
