@@ -25,6 +25,8 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 | Pair | Timeframe | Total Candle | EMA Terbaik | Return | Max DD | Buy & Hold | Calmar Rank | Sinyal Terakhir |
 |---|---|---|---|---|---|---|---|---|
+| **XMRUSD** | 1 Day | 725 | `9/20` | +105.24% | -9.53% | +106.28% | ⚠️ #15 | 🟢 **Hari ini** (BUY, masih holding) |
+| **NEARUSDT** | 1 Day | 2093 | `5/20` | +1164.56% | -67.00% | +69.19% | ⚠️ #13 | 🟢 **1 hari lalu** (BUY, masih holding) |
 | **ZECUSDT** | 1 Day | 2666 | `9/20` | +5984.22% | -51.62% | +777.04% | ✅ #8 | 🟢 **1 hari lalu** (BUY, masih holding) |
 | **ETHUSDT** | 1 Day | 3247 | `10/20` | +7128.22% | -46.34% | +486.57% | ✅ #5 | 🟢 **2 hari lalu** (BUY, masih holding) |
 | **UNIUSDT** | 1 Day | 2120 | `25/26` | +1289.64% | -35.67% | -7.79% | ⚠️ #10 | 🟢 **2 hari lalu** (BUY, masih holding) |
@@ -35,21 +37,19 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 | Pair | Timeframe | Total Candle | EMA Terbaik | Return | Max DD | Buy & Hold | Calmar Rank | Sinyal Terakhir |
 |---|---|---|---|---|---|---|---|---|
-| **NEARUSDT** | 1 Day | 2093 | `5/26` | +1196.44% | -72.03% | +69.19% | ⚠️ #13 | 🔴 **15 hari lalu** (SELL, menunggu sinyal beli) |
 | **BNBUSDT** | 1 Day | 3166 | `10/26` | +30822.68% | -31.91% | +36616.74% | ✅ #1 | 🔴 **33 hari lalu** (SELL, menunggu sinyal beli) |
 | **HBARUSDT** | 1 Day | 2474 | `12/30` | +5226.36% | -34.93% | +99.41% | ✅ #6 | 🔴 **34 hari lalu** (SELL, menunggu sinyal beli) |
 | **TRXUSDT** | 1 Day | 2949 | `12/30` | +1222.82% | -43.96% | +585.33% | ⚠️ #11 | 🔴 **34 hari lalu** (SELL, menunggu sinyal beli) |
-| **SUIUSDT** | 1 Day | 1162 | `5/50` | +646.47% | -51.10% | -48.07% | ⚠️ #16 | 🔴 **41 hari lalu** (SELL, menunggu sinyal beli) |
-| **DOGEUSDT** | 1 Day | 2560 | `15/26` | +18176.70% | -56.62% | +1816.75% | ✅ #3 | 🔴 **42 hari lalu** (SELL, menunggu sinyal beli) |
-| **XMRUSD** | 1 Day | 725 | `12/20` | +167.80% | -10.63% | +107.28% | ⚠️ #14 | 🔴 **43 hari lalu** (SELL, menunggu sinyal beli) |
+| **DOGEUSDT** | 1 Day | 2560 | `25/30` | +17991.17% | -52.04% | +1816.75% | ✅ #3 | 🔴 **37 hari lalu** (SELL, menunggu sinyal beli) |
+| **SUIUSDT** | 1 Day | 1162 | `5/26` | +408.00% | -50.43% | -48.07% | ⛔ #16 | 🔴 **43 hari lalu** (SELL, menunggu sinyal beli) |
 | **BTCUSDT** | 1 Day | 3247 | `10/30` | +6804.41% | -52.55% | +1378.71% | ✅ #7 | 🔴 **46 hari lalu** (SELL, menunggu sinyal beli) |
 | **ADAUSDT** | 1 Day | 3004 | `15/40` | +9390.82% | -34.42% | -28.03% | ✅ #4 | 🔴 **47 hari lalu** (SELL, menunggu sinyal beli) |
 | **LTCUSDT** | 1 Day | 3129 | `15/40` | +209.25% | -56.14% | -84.86% | ⛔ #18 | 🔴 **48 hari lalu** (SELL, menunggu sinyal beli) |
 | **LINKUSDT** | 1 Day | 2730 | `5/100` | +1614.49% | -71.67% | +1505.92% | ⚠️ #12 | 🔴 **50 hari lalu** (SELL, menunggu sinyal beli) |
-| **PAXGUSDT** | 1 Day | 2140 | `20/150` | +130.22% | -8.78% | +106.99% | ⚠️ #15 | 🔴 **51 hari lalu** (SELL, menunggu sinyal beli) |
-| **AVAXUSDT** | 1 Day | 2115 | `15/75` | +3356.67% | -33.05% | +25.75% | ✅ #9 | 🔴 **53 hari lalu** (SELL, menunggu sinyal beli) |
-| **BCHUSDT** | 1 Day | 2414 | `25/75` | +200.06% | -55.10% | +10.11% | ⛔ #19 | 🔴 **155 hari lalu** (SELL, menunggu sinyal beli) |
+| **PAXGUSDT** | 1 Day | 2140 | `10/40` | +103.60% | -7.56% | +106.99% | ⚠️ #14 | 🔴 **77 hari lalu** (SELL, menunggu sinyal beli) |
+| **BCHUSDT** | 1 Day | 2414 | `9/100` | +165.26% | -55.04% | +10.11% | ⛔ #19 | 🔴 **157 hari lalu** (SELL, menunggu sinyal beli) |
 | **XRPUSDT** | 1 Day | 2987 | `9/200` | +99.26% | -50.56% | +24.96% | ⛔ #20 | 🔴 **266 hari lalu** (SELL, menunggu sinyal beli) |
+| **AVAXUSDT** | 1 Day | 2115 | `9/100` | +2538.89% | -43.16% | +25.75% | ✅ #9 | 🔴 **268 hari lalu** (SELL, menunggu sinyal beli) |
 
 ## Detail per Aset
 
@@ -58,7 +58,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `adausdt_1d.csv`
 - **Total candle:** 3004
 - **Buy & Hold:** -28.03%
-- **Rekomendasi (return tertinggi):** EMA `15/40` → Return +9390.82%, MaxDD -34.42%
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `15/40` → Return +9390.82%, MaxDD -34.42%
 - **Sinyal terakhir pada kombinasi ini:** 🔴 **47 hari lalu** (SELL, menunggu sinyal beli)
 
 **Top 10 berdasarkan Total Return**
@@ -96,8 +96,8 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `avaxusdt_1d.csv`
 - **Total candle:** 2115
 - **Buy & Hold:** +25.75%
-- **Rekomendasi (return tertinggi):** EMA `15/75` → Return +3356.67%, MaxDD -33.05%
-- **Sinyal terakhir pada kombinasi ini:** 🔴 **53 hari lalu** (SELL, menunggu sinyal beli)
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `9/100` → Return +2538.89%, MaxDD -43.16%
+- **Sinyal terakhir pada kombinasi ini:** 🔴 **268 hari lalu** (SELL, menunggu sinyal beli)
 
 **Top 10 berdasarkan Total Return**
 
@@ -134,8 +134,8 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `bchusdt_1d.csv`
 - **Total candle:** 2414
 - **Buy & Hold:** +10.11%
-- **Rekomendasi (return tertinggi):** EMA `25/75` → Return +200.06%, MaxDD -55.10%
-- **Sinyal terakhir pada kombinasi ini:** 🔴 **155 hari lalu** (SELL, menunggu sinyal beli)
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `9/100` → Return +165.26%, MaxDD -55.04%
+- **Sinyal terakhir pada kombinasi ini:** 🔴 **157 hari lalu** (SELL, menunggu sinyal beli)
 
 **Top 10 berdasarkan Total Return**
 
@@ -172,7 +172,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `bnbusdt_1d.csv`
 - **Total candle:** 3166
 - **Buy & Hold:** +36616.74%
-- **Rekomendasi (return tertinggi):** EMA `10/26` → Return +30822.68%, MaxDD -31.91%
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `10/26` → Return +30822.68%, MaxDD -31.91%
 - **Sinyal terakhir pada kombinasi ini:** 🔴 **33 hari lalu** (SELL, menunggu sinyal beli)
 
 **Top 10 berdasarkan Total Return**
@@ -210,7 +210,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `btcusdt_1d.csv`
 - **Total candle:** 3247
 - **Buy & Hold:** +1378.71%
-- **Rekomendasi (return tertinggi):** EMA `10/30` → Return +6804.41%, MaxDD -52.55%
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `10/30` → Return +6804.41%, MaxDD -52.55%
 - **Sinyal terakhir pada kombinasi ini:** 🔴 **46 hari lalu** (SELL, menunggu sinyal beli)
 
 **Top 10 berdasarkan Total Return**
@@ -248,8 +248,8 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `dogeusdt_1d.csv`
 - **Total candle:** 2560
 - **Buy & Hold:** +1816.75%
-- **Rekomendasi (return tertinggi):** EMA `15/26` → Return +18176.70%, MaxDD -56.62%
-- **Sinyal terakhir pada kombinasi ini:** 🔴 **42 hari lalu** (SELL, menunggu sinyal beli)
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `25/30` → Return +17991.17%, MaxDD -52.04%
+- **Sinyal terakhir pada kombinasi ini:** 🔴 **37 hari lalu** (SELL, menunggu sinyal beli)
 
 **Top 10 berdasarkan Total Return**
 
@@ -286,7 +286,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `ethusdt_1d.csv`
 - **Total candle:** 3247
 - **Buy & Hold:** +486.57%
-- **Rekomendasi (return tertinggi):** EMA `10/20` → Return +7128.22%, MaxDD -46.34%
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `10/20` → Return +7128.22%, MaxDD -46.34%
 - **Sinyal terakhir pada kombinasi ini:** 🟢 **2 hari lalu** (BUY, masih holding)
 
 **Top 10 berdasarkan Total Return**
@@ -324,7 +324,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `hbarusdt_1d.csv`
 - **Total candle:** 2474
 - **Buy & Hold:** +99.41%
-- **Rekomendasi (return tertinggi):** EMA `12/30` → Return +5226.36%, MaxDD -34.93%
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `12/30` → Return +5226.36%, MaxDD -34.93%
 - **Sinyal terakhir pada kombinasi ini:** 🔴 **34 hari lalu** (SELL, menunggu sinyal beli)
 
 **Top 10 berdasarkan Total Return**
@@ -362,7 +362,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `linkusdt_1d.csv`
 - **Total candle:** 2730
 - **Buy & Hold:** +1505.92%
-- **Rekomendasi (return tertinggi):** EMA `5/100` → Return +1614.49%, MaxDD -71.67%
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `5/100` → Return +1614.49%, MaxDD -71.67%
 - **Sinyal terakhir pada kombinasi ini:** 🔴 **50 hari lalu** (SELL, menunggu sinyal beli)
 
 **Top 10 berdasarkan Total Return**
@@ -400,7 +400,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `ltcusdt_1d.csv`
 - **Total candle:** 3129
 - **Buy & Hold:** -84.86%
-- **Rekomendasi (return tertinggi):** EMA `15/40` → Return +209.25%, MaxDD -56.14%
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `15/40` → Return +209.25%, MaxDD -56.14%
 - **Sinyal terakhir pada kombinasi ini:** 🔴 **48 hari lalu** (SELL, menunggu sinyal beli)
 
 **Top 10 berdasarkan Total Return**
@@ -438,8 +438,8 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `nearusdt_1d.csv`
 - **Total candle:** 2093
 - **Buy & Hold:** +69.19%
-- **Rekomendasi (return tertinggi):** EMA `5/26` → Return +1196.44%, MaxDD -72.03%
-- **Sinyal terakhir pada kombinasi ini:** 🔴 **15 hari lalu** (SELL, menunggu sinyal beli)
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `5/20` → Return +1164.56%, MaxDD -67.00%
+- **Sinyal terakhir pada kombinasi ini:** 🟢 **1 hari lalu** (BUY, masih holding)
 
 **Top 10 berdasarkan Total Return**
 
@@ -476,8 +476,8 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `paxgusdt_1d.csv`
 - **Total candle:** 2140
 - **Buy & Hold:** +106.99%
-- **Rekomendasi (return tertinggi):** EMA `20/150` → Return +130.22%, MaxDD -8.78%
-- **Sinyal terakhir pada kombinasi ini:** 🔴 **51 hari lalu** (SELL, menunggu sinyal beli)
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `10/40` → Return +103.60%, MaxDD -7.56%
+- **Sinyal terakhir pada kombinasi ini:** 🔴 **77 hari lalu** (SELL, menunggu sinyal beli)
 
 **Top 10 berdasarkan Total Return**
 
@@ -514,7 +514,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `solusdt_1d.csv`
 - **Total candle:** 2157
 - **Buy & Hold:** +2342.93%
-- **Rekomendasi (return tertinggi):** EMA `9/26` → Return +19221.18%, MaxDD -44.22%
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `9/26` → Return +19221.18%, MaxDD -44.22%
 - **Sinyal terakhir pada kombinasi ini:** 🟢 **6 hari lalu** (BUY, masih holding)
 
 **Top 10 berdasarkan Total Return**
@@ -552,8 +552,8 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `suiusdt_1d.csv`
 - **Total candle:** 1162
 - **Buy & Hold:** -48.07%
-- **Rekomendasi (return tertinggi):** EMA `5/50` → Return +646.47%, MaxDD -51.10%
-- **Sinyal terakhir pada kombinasi ini:** 🔴 **41 hari lalu** (SELL, menunggu sinyal beli)
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `5/26` → Return +408.00%, MaxDD -50.43%
+- **Sinyal terakhir pada kombinasi ini:** 🔴 **43 hari lalu** (SELL, menunggu sinyal beli)
 
 **Top 10 berdasarkan Total Return**
 
@@ -590,7 +590,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `trxusdt_1d.csv`
 - **Total candle:** 2949
 - **Buy & Hold:** +585.33%
-- **Rekomendasi (return tertinggi):** EMA `12/30` → Return +1222.82%, MaxDD -43.96%
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `12/30` → Return +1222.82%, MaxDD -43.96%
 - **Sinyal terakhir pada kombinasi ini:** 🔴 **34 hari lalu** (SELL, menunggu sinyal beli)
 
 **Top 10 berdasarkan Total Return**
@@ -628,7 +628,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `uniusdt_1d.csv`
 - **Total candle:** 2120
 - **Buy & Hold:** -7.79%
-- **Rekomendasi (return tertinggi):** EMA `25/26` → Return +1289.64%, MaxDD -35.67%
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `25/26` → Return +1289.64%, MaxDD -35.67%
 - **Sinyal terakhir pada kombinasi ini:** 🟢 **2 hari lalu** (BUY, masih holding)
 
 **Top 10 berdasarkan Total Return**
@@ -666,7 +666,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `xlmusdt_1d.csv`
 - **Total candle:** 2960
 - **Buy & Hold:** -36.15%
-- **Rekomendasi (return tertinggi):** EMA `5/30` → Return +381.19%, MaxDD -64.95%
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `5/30` → Return +381.19%, MaxDD -64.95%
 - **Sinyal terakhir pada kombinasi ini:** 🟢 **4 hari lalu** (BUY, masih holding)
 
 **Top 10 berdasarkan Total Return**
@@ -703,9 +703,9 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 - **File sumber:** `xmrusd_daily_kraken.csv`
 - **Total candle:** 725
-- **Buy & Hold:** +107.28%
-- **Rekomendasi (return tertinggi):** EMA `12/20` → Return +167.80%, MaxDD -10.63%
-- **Sinyal terakhir pada kombinasi ini:** 🔴 **43 hari lalu** (SELL, menunggu sinyal beli)
+- **Buy & Hold:** +106.28%
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `9/20` → Return +105.24%, MaxDD -9.53%
+- **Sinyal terakhir pada kombinasi ini:** 🟢 **Hari ini** (BUY, masih holding)
 
 **Top 10 berdasarkan Total Return**
 
@@ -714,8 +714,8 @@ setiap kali script dijalankan dengan flag `--detail`.
 | 12 | 20 | 10 | 50.0% | +167.80% | -10.63% | 15.78 | 🔴 **43 hari lalu** (SELL, menunggu sinyal beli) |
 | 8 | 26 | 11 | 45.5% | +164.23% | -9.43% | 17.42 | 🔴 **43 hari lalu** (SELL, menunggu sinyal beli) |
 | 10 | 40 | 8 | 50.0% | +142.38% | -11.89% | 11.97 | 🔴 **39 hari lalu** (SELL, menunggu sinyal beli) |
+| 10 | 20 | 12 | 58.3% | +138.26% | -9.03% | 15.32 | 🔴 **44 hari lalu** (SELL, menunggu sinyal beli) |
 | 10 | 26 | 10 | 50.0% | +138.24% | -9.43% | 14.66 | 🔴 **41 hari lalu** (SELL, menunggu sinyal beli) |
-| 10 | 20 | 13 | 53.8% | +137.54% | -9.03% | 15.24 | 🟢 **Hari ini** (BUY, masih holding) |
 | 9 | 26 | 12 | 41.7% | +137.38% | -10.26% | 13.39 | 🔴 **41 hari lalu** (SELL, menunggu sinyal beli) |
 | 12 | 40 | 8 | 50.0% | +137.22% | -11.89% | 11.54 | 🔴 **38 hari lalu** (SELL, menunggu sinyal beli) |
 | 15 | 30 | 7 | 57.1% | +135.59% | -16.67% | 8.14 | 🔴 **39 hari lalu** (SELL, menunggu sinyal beli) |
@@ -728,7 +728,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 |---|---|---|---|---|---|---|---|
 | 8 | 26 | 11 | 45.5% | +164.23% | -9.43% | 17.42 | 🔴 **43 hari lalu** (SELL, menunggu sinyal beli) |
 | 12 | 20 | 10 | 50.0% | +167.80% | -10.63% | 15.78 | 🔴 **43 hari lalu** (SELL, menunggu sinyal beli) |
-| 10 | 20 | 13 | 53.8% | +137.54% | -9.03% | 15.24 | 🟢 **Hari ini** (BUY, masih holding) |
+| 10 | 20 | 12 | 58.3% | +138.26% | -9.03% | 15.32 | 🔴 **44 hari lalu** (SELL, menunggu sinyal beli) |
 | 5 | 150 | 3 | 66.7% | +52.95% | -3.59% | 14.76 | 🔴 **38 hari lalu** (SELL, menunggu sinyal beli) |
 | 10 | 26 | 10 | 50.0% | +138.24% | -9.43% | 14.66 | 🔴 **41 hari lalu** (SELL, menunggu sinyal beli) |
 | 8 | 30 | 12 | 41.7% | +127.87% | -9.40% | 13.61 | 🔴 **41 hari lalu** (SELL, menunggu sinyal beli) |
@@ -742,7 +742,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `xrpusdt_1d.csv`
 - **Total candle:** 2987
 - **Buy & Hold:** +24.96%
-- **Rekomendasi (return tertinggi):** EMA `9/200` → Return +99.26%, MaxDD -50.56%
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `9/200` → Return +99.26%, MaxDD -50.56%
 - **Sinyal terakhir pada kombinasi ini:** 🔴 **266 hari lalu** (SELL, menunggu sinyal beli)
 
 **Top 10 berdasarkan Total Return**
@@ -780,7 +780,7 @@ setiap kali script dijalankan dengan flag `--detail`.
 - **File sumber:** `zecusdt_1d.csv`
 - **Total candle:** 2666
 - **Buy & Hold:** +777.04%
-- **Rekomendasi (return tertinggi):** EMA `9/20` → Return +5984.22%, MaxDD -51.62%
+- **Rekomendasi (calmar tertinggi, trades >= 15):** EMA `9/20` → Return +5984.22%, MaxDD -51.62%
 - **Sinyal terakhir pada kombinasi ini:** 🟢 **1 hari lalu** (BUY, masih holding)
 
 **Top 10 berdasarkan Total Return**

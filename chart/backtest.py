@@ -47,6 +47,15 @@ FEE_PCT = 0.15
 # secara risk-adjusted tidak sepadan untuk dijadikan acuan sinyal beli.
 MIN_CALMAR = 0.5
 
+# Filter kualitas kedua: kombinasi EMA dengan jumlah trade closed di bawah ambang
+# ini TIDAK dianggap layak dijadikan "best", meskipun calmar-nya tinggi.
+# Rasional: calmar tinggi yang dibangun dari sedikit trade (contoh empiris: SOLUSDT
+# EMA 20/150 calmar=609 dari 7 trade) terbukti tidak robust -- begitu sampel
+# diperbesar, calmar riilnya jatuh signifikan dan drawdown sebenarnya jauh lebih
+# dalam dari yang terlihat. Ambang 15 dipilih sebagai heuristik minimum sampel
+# yang cukup untuk menghindari overfitting pada grid search in-sample.
+MIN_TRADES = 15
+
 # Direktori cache -- menyimpan hasil grid search per file CSV agar tidak
 # dihitung ulang jika file sumber belum berubah.
 CACHE_DIR = ".backtest_cache"
@@ -382,9 +391,12 @@ def run_one_file(path, verbose=True, collect_detail=False, use_cache=True):
         if use_cache:
             _save_cache(path, fingerprint, bh_return, results, results_calmar, total_candle)
 
-    # Filter kombinasi yang lolos ambang calmar minimum -- inilah kandidat yang
-    # layak dijadikan "best" / dasar sinyal utama.
-    qualified = [r for r in results if r['calmar'] >= MIN_CALMAR]
+    # Filter kombinasi yang lolos DUA ambang -- calmar minimum DAN jumlah trade
+    # minimum -- inilah kandidat yang layak dijadikan "best" / dasar sinyal utama.
+    # Diambil dari results_calmar (terurut calmar tertinggi -> terendah) sehingga
+    # best = kandidat dengan calmar tertinggi DI ANTARA yang sudah lolos kedua
+    # threshold kelayakan, bukan return tertinggi seperti versi sebelumnya.
+    qualified = [r for r in results_calmar if r['calmar'] >= MIN_CALMAR and r['n_trades'] >= MIN_TRADES]
 
     if verbose:
         if HAS_RICH:
@@ -405,7 +417,8 @@ def run_one_file(path, verbose=True, collect_detail=False, use_cache=True):
 
         if qualified:
             best = qualified[0]
-            rekomendasi = (f"\n>> Rekomendasi (return tertinggi, calmar >= {MIN_CALMAR}): "
+            rekomendasi = (f"\n>> Rekomendasi (calmar tertinggi, calmar >= {MIN_CALMAR}, "
+                          f"trades >= {MIN_TRADES}): "
                           f"EMA {best['fast']}/{best['slow']} (calmar={best['calmar']:.2f})")
             console.print(f"[bold green]{rekomendasi}[/bold green]") if HAS_RICH else print(rekomendasi)
         else:
@@ -577,7 +590,7 @@ def generate_markdown_section(summary_with_detail, bullish, bearish, unknown):
         lines.append(f"- **File sumber:** `{path}`")
         lines.append(f"- **Total candle:** {candle_count}")
         lines.append(f"- **Buy & Hold:** {_fmt_pct(bh)}")
-        lines.append(f"- **Rekomendasi (return tertinggi):** EMA `{best['fast']}/{best['slow']}` "
+        lines.append(f"- **Rekomendasi (calmar tertinggi, trades >= {MIN_TRADES}):** EMA `{best['fast']}/{best['slow']}` "
                       f"→ Return {_fmt_pct(best['total_return_pct'])}, MaxDD {best['max_dd_pct']:.2f}%")
         lines.append(f"- **Sinyal terakhir pada kombinasi ini:** {_fmt_last_signal_md(best)}")
         lines.append("")
@@ -608,16 +621,18 @@ def generate_markdown_section(summary_with_detail, bullish, bearish, unknown):
     return "\n".join(lines)
 
 
-README_INTRO = """# Hasil Pengujian EMA Crossover
+README_INTRO = f"""# Hasil Pengujian EMA Crossover
 
 Repositori ini berisi hasil pengujian sistematis strategi *dual EMA crossover*
 (beli saat EMA cepat memotong ke atas EMA lambat, jual saat memotong ke bawah)
 pada berbagai aset kripto, timeframe daily, dengan asumsi fee trading 0,15% per sisi.
 
 Pengujian dilakukan dengan grid search murni (mencoba banyak kombinasi EMA fast/slow),
-mengambil kombinasi dengan return tertinggi sebagai representasi tiap aset. Hasil ini
-bersifat in-sample (belum divalidasi walk-forward out-of-sample) kecuali disebutkan lain,
-sehingga sebaiknya tidak dijadikan dasar tunggal untuk keputusan trading nyata.
+mengambil kombinasi dengan calmar tertinggi (risk-adjusted return) sebagai representasi
+tiap aset, dengan syarat minimum {MIN_TRADES} trade closed agar tidak overfitting pada
+sampel kecil. Hasil ini bersifat in-sample (belum divalidasi walk-forward out-of-sample)
+kecuali disebutkan lain, sehingga sebaiknya tidak dijadikan dasar tunggal untuk keputusan
+trading nyata.
 
 Data & hasil di bawah ini dihasilkan otomatis oleh `backtest.py` dan diperbarui
 setiap kali script dijalankan dengan flag `--detail`.
