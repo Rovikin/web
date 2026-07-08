@@ -452,25 +452,35 @@ def _fmt_last_signal_md(r):
     return f'{dot} **{days_label}** ({sig_type}, {status})'
 
 
-def _calmar_tier_symbol(calmar):
+def _calmar_tier_symbol(calmar, markdown=False):
     """
     Tentukan simbol tier berdasarkan nilai calmar absolut (bukan rank relatif),
     supaya hasil konsisten terlepas dari berapa banyak aset yang diuji bersamaan.
-    calmar >= 10 -> ✅, 3 <= calmar < 10 -> ❗, calmar < 3 -> 🚫.
+    calmar >= 50 -> ✅, 10 <= calmar < 50 -> tanda peringatan, calmar < 10 -> ⛔.
+
+    Untuk tier peringatan menengah, dua varian dipakai tergantung target output:
+    - markdown=True  -> ⚠️ (U+26A0 + U+FE0F, "emoji presentation") -- tampil
+      sebagai segitiga kuning penuh warna di renderer Markdown (GitHub, editor, dst).
+    - markdown=False -> ⚠  (U+26A0 saja, "text presentation") -- 1 code point,
+      lebar tampilan konsisten di terminal, sehingga tidak merusak alignment
+      border tabel `rich`. Versi dengan selector adalah 2 code point dan lebar
+      tampilannya tidak konsisten di berbagai terminal (termasuk Termux).
     """
-    if calmar >= 10:
+    if calmar >= 50:
         return "✅"
-    elif calmar >= 3:
-        return "❗"
+    elif calmar >= 10:
+        return "⚠️" if markdown else "⚠"
     else:
-        return "🚫"
+        return "⛔"
 
 
-def _compute_calmar_ranks(summary):
+def _compute_calmar_ranks(summary, markdown=False):
     """
     Hitung rank calmar (1 = terbaik) lintas semua aset yang punya best result,
     diurutkan dari calmar tertinggi ke terendah. Tier symbol dihitung dari nilai
     calmar absolut (lihat _calmar_tier_symbol), bukan posisi rank.
+    markdown=True dipakai saat hasil ini dirender ke README.md/Markdown;
+    markdown=False (default) dipakai untuk tampilan terminal (rich/plain-text).
     Return dict {path: (rank, total, symbol)}.
     """
     scored = [(path, best['calmar']) for path, best, bh, detail in summary if best is not None]
@@ -478,7 +488,7 @@ def _compute_calmar_ranks(summary):
     total = len(scored)
     ranks = {}
     for i, (path, calmar) in enumerate(scored, start=1):
-        ranks[path] = (i, total, _calmar_tier_symbol(calmar))
+        ranks[path] = (i, total, _calmar_tier_symbol(calmar, markdown=markdown))
     return ranks
 
 
@@ -501,7 +511,7 @@ def generate_markdown_section(summary_with_detail, bullish, bearish, unknown):
     headers = ["Pair", "Timeframe", "Total Candle", "EMA Terbaik",
                "Return", "Max DD", "Buy & Hold", "Calmar Rank", "Sinyal Terakhir"]
 
-    calmar_ranks = _compute_calmar_ranks(summary_with_detail)
+    calmar_ranks = _compute_calmar_ranks(summary_with_detail, markdown=True)
 
     def _build_summary_table(group):
         table_rows = []
