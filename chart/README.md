@@ -52,13 +52,9 @@ setiap kali script dijalankan dengan flag `--detail`.
 | **AVAXUSDT** | 1 Day | 2116 | +1739.44% | -73.10% | +21.73% | 54 | 🟢 **15 hari lalu** (BUY, masih holding) |
 | **TRXUSDT** | 1 Day | 2950 | +440.55% | -74.68% | +578.72% | 91 | 🟢 **17 hari lalu** (BUY, masih holding) |
 | **ADAUSDT** | 1 Day | 3005 | +1331.55% | -79.87% | -31.12% | 81 | 🟢 **21 hari lalu** (BUY, masih holding) |
-| **SUIUSDT** | 1 Day | 1163 | -61.33% | -69.68% | -49.27% | 36 | 🟢 **22 hari lalu** (BUY, masih holding) |
-| **BCHUSDT** | 1 Day | 2415 | -12.65% | -81.17% | +8.27% | 78 | 🟢 **23 hari lalu** (BUY, masih holding) |
 | **BTCUSDT** | 1 Day | 3248 | +4143.00% | -54.75% | +1353.65% | 92 | 🟢 **23 hari lalu** (BUY, masih holding) |
 | **ETHUSDT** | 1 Day | 3248 | +2711.25% | -59.34% | +477.33% | 91 | 🟢 **23 hari lalu** (BUY, masih holding) |
-| **LTCUSDT** | 1 Day | 3130 | -87.40% | -90.68% | -84.95% | 97 | 🟢 **23 hari lalu** (BUY, masih holding) |
 | **SOLUSDT** | 1 Day | 2158 | +15198.77% | -69.89% | +2259.56% | 54 | 🟢 **23 hari lalu** (BUY, masih holding) |
-| **UNIUSDT** | 1 Day | 2121 | -21.65% | -89.26% | -5.25% | 66 | 🟢 **23 hari lalu** (BUY, masih holding) |
 
 ## Result -- Bearish (Sinyal SELL)
 
