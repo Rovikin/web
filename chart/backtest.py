@@ -6,21 +6,26 @@ Kompatibel dengan Termux standar tanpa instalasi library tambahan.
 
 Cara pakai:
     python3 backtest.py                          # auto-scan semua .csv di folder ini, ringkasan pendek
-    python3 backtest.py --detail                 # auto-scan semua .csv, detail penuh + ringkasan + tulis README.md
+    python3 backtest.py --detail                 # auto-scan semua .csv, detail penuh + ringkasan + tulis index.html
     python3 backtest.py <file_csv>                # satu file, ringkasan pendek
-    python3 backtest.py <file_csv> --detail       # satu file, detail penuh + tulis README.md
+    python3 backtest.py <file_csv> --detail       # satu file, detail penuh + tulis index.html
     python3 backtest.py <file_csv_1> <file_csv_2> # banyak file spesifik, ringkasan pendek
 
 Contoh:
     python3 backtest.py
     python3 backtest.py btcusdt_1d.csv ethusdt_1d.csv --detail
 
-CATATAN README.md:
-Hanya flag --detail yang menulis/memperbarui README.md di direktori kerja saat ini.
-Perintah biasa (tanpa --detail) TIDAK pernah menyentuh README.md.
-Jika README.md sudah ada, hanya bagian di antara marker
+CATATAN index.html:
+Hanya flag --detail yang menulis/memperbarui index.html di direktori kerja saat ini.
+Perintah biasa (tanpa --detail) TIDAK pernah menyentuh index.html.
+File ini didesain agar langsung bisa di-deploy sebagai GitHub Pages (root dari
+repo atau folder /docs, tergantung konfigurasi Pages Anda).
+Jika index.html sudah ada, hanya bagian di antara marker
 <!-- BACKTEST_RESULTS_START --> ... <!-- BACKTEST_RESULTS_END -->
-yang diperbarui -- konten lain yang Anda tulis manual di luar marker tetap aman.
+yang diperbarui -- namun perlu diperhatikan: karena seluruh <head>, CSS, intro,
+dan footer juga dihasilkan otomatis dari script ini, jika Anda mengedit bagian
+di luar marker secara manual (misal ubah CSS langsung di file), perubahan itu
+TETAP dipertahankan selama marker START/END masih ada di file.
 
 CATATAN METODE:
 Versi ini TIDAK lagi melakukan grid search EMA in-sample. Parameter MACD
@@ -401,14 +406,12 @@ def run_one_file(path, verbose=True, collect_detail=False, use_cache=True):
     return path, result, bh_return, detail
 
 
-def _md_table(headers, rows):
-    """Bangun tabel markdown standar dari header dan list-of-list baris."""
-    lines = []
-    lines.append("| " + " | ".join(headers) + " |")
-    lines.append("|" + "|".join(["---"] * len(headers)) + "|")
-    for row in rows:
-        lines.append("| " + " | ".join(str(c) for c in row) + " |")
-    return "\n".join(lines)
+def _esc(val):
+    """Escape karakter HTML dasar untuk teks yang disisipkan ke markup."""
+    return (str(val)
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;"))
 
 
 def _fmt_pct(val):
@@ -416,37 +419,48 @@ def _fmt_pct(val):
     return f"{sign}{val:.2f}%"
 
 
-def _fmt_last_signal_md(r):
-    """Format untuk markdown: emoji bulat hijau untuk BUY (masih holding), merah untuk SELL (menunggu beli)."""
+def _fmt_last_signal_html(r):
+    """Format sinyal terakhir sebagai badge HTML: hijau untuk BUY (holding), merah untuk SELL (menunggu beli)."""
     if r.get('days_since_last_signal') is None or r.get('last_signal_type') is None:
-        return "-"
+        return '<span class="dash">-</span>'
     days_label = _days_label(r['days_since_last_signal'])
     sig_type = r['last_signal_type']
     status = "masih holding" if sig_type == "BUY" else "menunggu sinyal beli"
-    dot = "🟢" if sig_type == "BUY" else "🔴"
-    return f'{dot} **{days_label}** ({sig_type}, {status})'
+    css_class = "signal-buy" if sig_type == "BUY" else "signal-sell"
+    return (f'<span class="badge {css_class}">{sig_type}</span> '
+            f'<span class="signal-detail">{_esc(days_label)} ({_esc(status)})</span>')
 
 
-def generate_markdown_section(summary_with_detail, bullish, bearish, unknown):
+def _html_table(headers, rows):
+    """Bangun tabel HTML dari header dan list-of-list baris (sel berisi HTML mentah, sudah di-escape sebelumnya)."""
+    lines = ['<div class="table-wrap"><table>']
+    lines.append("<thead><tr>" + "".join(f"<th>{h}</th>" for h in headers) + "</tr></thead>")
+    lines.append("<tbody>")
+    for row in rows:
+        lines.append("<tr>" + "".join(f"<td>{c}</td>" for c in row) + "</tr>")
+    lines.append("</tbody></table></div>")
+    return "\n".join(lines)
+
+
+def generate_html_section(summary_with_detail, bullish, bearish, unknown):
     """
-    Bangun konten markdown (tanpa header/footer README) dari hasil backtest MACD.
-    summary_with_detail: list of (path, result, bh, detail) -- tidak dipakai untuk
-    detail per-aset lagi (dihapus), hanya diteruskan untuk kompatibilitas caller.
+    Bangun konten HTML (badan hasil saja, tanpa <head>/intro/footer halaman) dari hasil backtest MACD.
+    summary_with_detail: list of (path, result, bh, detail) -- diteruskan untuk kompatibilitas caller.
     bullish, bearish, unknown: hasil split_and_sort_by_signal -- masing-masing
     dirender sebagai satu tabel ringkas, diurutkan dari sinyal paling baru.
     """
     lines = []
-    lines.append(f"**Fee yang digunakan:** {FEE_PCT}% per sisi ({2*FEE_PCT}% round-trip)")
-    lines.append(f"**Parameter MACD (tetap, semua pair):** `{MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}`")
-    lines.append("")
-    lines.append("**Sinyal Terakhir** menunjukkan sudah berapa hari sejak crossover MACD terakhir "
-                 "terjadi, dihitung sampai candle paling akhir di data "
-                 "(BUY = masih dalam posisi terbuka, SELL = sudah keluar dan menunggu sinyal beli berikutnya). "
-                 "Kedua tabel di bawah diurutkan dari sinyal paling baru ke paling lama.")
-    lines.append("")
+    lines.append('<div class="meta-info">')
+    lines.append(f'<p><strong>Fee yang digunakan:</strong> {FEE_PCT}% per sisi ({2*FEE_PCT}% round-trip)</p>')
+    lines.append(f'<p><strong>Parameter MACD (tetap, semua pair):</strong> <code>{MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}</code></p>')
+    lines.append('<p><strong>Sinyal Terakhir</strong> menunjukkan sudah berapa hari sejak crossover MACD '
+                 'terakhir terjadi, dihitung sampai candle paling akhir di data '
+                 '(BUY = masih dalam posisi terbuka, SELL = sudah keluar dan menunggu sinyal beli berikutnya). '
+                 'Kedua tabel di bawah diurutkan dari sinyal paling baru ke paling lama.</p>')
+    lines.append('</div>')
 
     headers = ["Pair", "Timeframe", "Total Candle",
-               "Return", "Max DD", "Buy & Hold", "Trades", "Sinyal Terakhir"]
+               "Return", "Max DD", "Buy &amp; Hold", "Trades", "Sinyal Terakhir"]
 
     def _build_summary_table(group):
         table_rows = []
@@ -454,116 +468,207 @@ def generate_markdown_section(summary_with_detail, bullish, bearish, unknown):
             pair, tf_label = parse_filename(path)
             candle_count = detail["total_candle"] if detail else "-"
             if result is None:
-                table_rows.append([pair, tf_label, candle_count, "-", "-", _fmt_pct(bh), "-", "-"])
-            else:
-                sig_label = _fmt_last_signal_md(result)
                 table_rows.append([
-                    f"**{pair}**", tf_label, candle_count,
-                    _fmt_pct(result['total_return_pct']),
-                    f"{result['max_dd_pct']:.2f}%",
+                    f'<strong>{_esc(pair)}</strong>', _esc(tf_label), candle_count,
+                    '<span class="dash">-</span>', '<span class="dash">-</span>',
+                    _fmt_pct(bh), '<span class="dash">-</span>', '<span class="dash">-</span>',
+                ])
+            else:
+                return_val = result['total_return_pct']
+                return_class = "positive" if return_val > 0 else "negative"
+                sig_label = _fmt_last_signal_html(result)
+                table_rows.append([
+                    f'<strong>{_esc(pair)}</strong>', _esc(tf_label), candle_count,
+                    f'<span class="{return_class}">{_fmt_pct(return_val)}</span>',
+                    f'<span class="negative">{result["max_dd_pct"]:.2f}%</span>',
                     _fmt_pct(bh),
                     str(result['n_trades']),
                     sig_label,
                 ])
-        return _md_table(headers, table_rows)
+        return _html_table(headers, table_rows)
 
     if bullish:
-        lines.append("## Result -- Bullish (Sinyal BUY)")
-        lines.append("")
+        lines.append('<h2>Result — Bullish <span class="badge signal-buy">Sinyal BUY</span></h2>')
         lines.append(_build_summary_table(bullish))
-        lines.append("")
 
     if bearish:
-        lines.append("## Result -- Bearish (Sinyal SELL)")
-        lines.append("")
+        lines.append('<h2>Result — Bearish <span class="badge signal-sell">Sinyal SELL</span></h2>')
         lines.append(_build_summary_table(bearish))
-        lines.append("")
 
     if unknown:
-        lines.append("## Result -- Data Tidak Cukup / Tanpa Sinyal")
-        lines.append("")
+        lines.append('<h2>Result — Data Tidak Cukup / Tanpa Sinyal</h2>')
         lines.append(_build_summary_table(unknown))
-        lines.append("")
 
     return "\n".join(lines)
 
 
-README_INTRO = f"""# Hasil Pengujian MACD Crossover ({MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL})
+PAGE_CSS = """
+:root {
+  --bg: #0d1117;
+  --bg-card: #161b22;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --text-muted: #8b949e;
+  --accent: #58a6ff;
+  --green: #3fb950;
+  --red: #f85149;
+  --green-bg: rgba(63, 185, 80, 0.15);
+  --red-bg: rgba(248, 81, 73, 0.15);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+}
+.container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+h1 { font-size: 1.75rem; margin-bottom: 0.5rem; color: #fff; }
+h2 {
+  font-size: 1.25rem; margin-top: 2.5rem; margin-bottom: 1rem;
+  color: #fff; display: flex; align-items: center; gap: 0.6rem;
+}
+p { color: var(--text); }
+code {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px;
+  padding: 0.1rem 0.4rem; font-size: 0.9em; color: var(--accent);
+}
+a { color: var(--accent); }
+.intro {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+  padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
+}
+.meta-info {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+  padding: 1rem 1.5rem; margin: 1rem 0 1.5rem;
+}
+.meta-info p { margin: 0.4rem 0; font-size: 0.92rem; color: var(--text-muted); }
+.warning-box {
+  border-left: 3px solid #d29922; background: rgba(210, 153, 34, 0.1);
+  padding: 1rem 1.25rem; border-radius: 6px; margin: 1.25rem 0; font-size: 0.92rem;
+}
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 640px; }
+thead th {
+  text-align: left; background: var(--bg-card); color: var(--text-muted);
+  font-weight: 600; padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+tbody td { padding: 0.65rem 1rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: rgba(255,255,255,0.03); }
+.positive { color: var(--green); font-weight: 600; }
+.negative { color: var(--red); font-weight: 600; }
+.dash { color: var(--text-muted); }
+.badge {
+  display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.03em;
+}
+.signal-buy { background: var(--green-bg); color: var(--green); }
+.signal-sell { background: var(--red-bg); color: var(--red); }
+.signal-detail { color: var(--text-muted); font-size: 0.85rem; }
+footer {
+  margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
+  color: var(--text-muted); font-size: 0.85rem;
+}
+"""
 
-Repositori ini berisi hasil pengujian strategi *MACD crossover* (beli saat garis
+PAGE_INTRO = f"""
+<h1>Hasil Pengujian MACD Crossover ({MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL})</h1>
+<div class="intro">
+<p>Halaman ini berisi hasil pengujian strategi <em>MACD crossover</em> (beli saat garis
 MACD memotong ke atas garis sinyal, jual saat memotong ke bawah) pada berbagai
-aset kripto, timeframe daily, dengan asumsi fee trading 0,15% per sisi.
+aset kripto, timeframe daily, dengan asumsi fee trading 0,15% per sisi.</p>
 
-Parameter `{MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}` bersifat **tetap untuk semua pair**
+<p>Parameter <code>{MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}</code> bersifat <strong>tetap untuk semua pair</strong>
 (tidak di-grid-search ulang per aset). Parameter ini dipilih lewat pengujian
 yang menguji generalisasi satu setup tunggal lintas 16 pair, tervalidasi melalui
 in-sample/out-of-sample split dan walk-forward analysis (expanding window, 5 fold,
 tanpa refitting per pair). Setup ini unggul di seluruh metrik walk-forward genuine
-dibanding kandidat lain yang diuji, termasuk default klasik 12/26/9.
+dibanding kandidat lain yang diuji, termasuk default klasik 12/26/9.</p>
 
+<div class="warning-box">
 Karena sudah melalui OOS split dan walk-forward, hasil di bawah ini bukan lagi
-murni in-sample -- namun tetap bukan jaminan performa live. Walk-forward genuine
+murni in-sample — namun tetap bukan jaminan performa live. Walk-forward genuine
 menunjukkan hanya ~52% fold individual yang positif dan ~65% pair yang signifikan
-secara statistik (bootstrap p<0,05); artinya edge ada tapi tidak seragam di semua
+secara statistik (bootstrap p&lt;0,05); artinya edge ada tapi tidak seragam di semua
 pair maupun di semua periode. Gunakan sebagai salah satu input keputusan, bukan
 sinyal mutlak, dan pertimbangkan manajemen risiko (position sizing, bukan all-in)
 terutama pada pair dengan riwayat maximum drawdown dalam.
+</div>
 
-Data mentah dan script pengujian tersedia untuk diverifikasi/diuji ulang secara
-mandiri di [github.com/Rovikin/web/tree/main/chart](https://github.com/Rovikin/web/tree/main/chart).
+<p>Data mentah dan script pengujian tersedia untuk diverifikasi/diuji ulang secara
+mandiri di <a href="https://github.com/Rovikin/web/tree/main/chart">github.com/Rovikin/web/tree/main/chart</a>.</p>
 
-Tidak ada lagi filter kelayakan (calmar minimum / jumlah trade minimum) -- seluruh
-pair yang berhasil diuji ditampilkan apa adanya, termasuk yang trade-nya sedikit.
-
-Data & hasil di bawah ini dihasilkan otomatis oleh `backtest.py` dan diperbarui
-setiap kali script dijalankan dengan flag `--detail`.
-
----
-
+<p>Tidak ada lagi filter kelayakan (calmar minimum / jumlah trade minimum) — seluruh
+pair yang berhasil diuji ditampilkan apa adanya, termasuk yang trade-nya sedikit.</p>
+</div>
 """
 
-README_OUTRO = f"""
-
----
-
-_Dihasilkan otomatis oleh `backtest.py`. Metodologi: MACD crossover ({MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}),
-parameter tetap untuk semua pair, long-only, fee dihitung di setiap entry & exit,
+PAGE_OUTRO = f"""
+<footer>
+Dihasilkan otomatis oleh <code>backtest.py</code>. Metodologi: MACD crossover ({MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}),
+parameter tetap untuk semua pair, long-only, fee dihitung di setiap entry &amp; exit,
 tanpa slippage. Divalidasi IS/OOS split + walk-forward expanding window. Data dan
-script pengujian: [github.com/Rovikin/web/tree/main/chart](https://github.com/Rovikin/web/tree/main/chart) --
-silakan uji ulang secara mandiri._
+script pengujian: <a href="https://github.com/Rovikin/web/tree/main/chart">github.com/Rovikin/web/tree/main/chart</a>
+— silakan uji ulang secara mandiri.
+</footer>
 """
 
-README_START_MARKER = "<!-- BACKTEST_RESULTS_START -->"
-README_END_MARKER = "<!-- BACKTEST_RESULTS_END -->"
+HTML_START_MARKER = "<!-- BACKTEST_RESULTS_START -->"
+HTML_END_MARKER = "<!-- BACKTEST_RESULTS_END -->"
+
+PAGE_TITLE = f"Hasil Backtest MACD ({MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL})"
+
+PAGE_TEMPLATE = f"""<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{PAGE_TITLE}</title>
+<style>{PAGE_CSS}</style>
+</head>
+<body>
+<div class="container">
+{PAGE_INTRO}
+{HTML_START_MARKER}
+__BODY__
+{HTML_END_MARKER}
+{PAGE_OUTRO}
+</div>
+</body>
+</html>
+"""
 
 
-def write_readme(summary_with_detail, bullish, bearish, unknown, readme_path="README.md"):
+def write_html_report(summary_with_detail, bullish, bearish, unknown, output_path="index.html"):
     """
-    Tulis/perbarui README.md:
-    - Jika belum ada -> buat dengan intro + hasil + outro, dibungkus marker.
-    - Jika sudah ada -> ganti HANYA konten di antara marker, pertahankan bagian lain
-      yang mungkin sudah ditulis manual oleh pengguna di luar marker.
+    Tulis/perbarui index.html:
+    - Jika belum ada -> buat halaman lengkap (head + intro + hasil + footer), dibungkus marker.
+    - Jika sudah ada dan markernya ditemukan -> ganti HANYA konten di antara marker,
+      pertahankan bagian lain yang mungkin sudah diedit manual (CSS, intro, dsb).
     """
-    body = generate_markdown_section(summary_with_detail, bullish, bearish, unknown)
-    wrapped_body = f"{README_START_MARKER}\n\n{body}\n\n{README_END_MARKER}"
+    body = generate_html_section(summary_with_detail, bullish, bearish, unknown)
+    wrapped_body = f"{HTML_START_MARKER}\n{body}\n{HTML_END_MARKER}"
 
-    if os.path.exists(readme_path):
-        with open(readme_path, "r", encoding="utf-8") as f:
+    if os.path.exists(output_path):
+        with open(output_path, "r", encoding="utf-8") as f:
             existing = f.read()
-        if README_START_MARKER in existing and README_END_MARKER in existing:
-            pre = existing.split(README_START_MARKER)[0]
-            post = existing.split(README_END_MARKER)[1]
+        if HTML_START_MARKER in existing and HTML_END_MARKER in existing:
+            pre = existing.split(HTML_START_MARKER)[0]
+            post = existing.split(HTML_END_MARKER)[1]
             new_content = pre + wrapped_body + post
         else:
-            # Belum ada marker -- anggap file lama, tambahkan hasil baru di akhir
-            new_content = existing.rstrip() + "\n\n" + wrapped_body + "\n"
+            # Belum ada marker -- anggap file lama/manual, buat ulang dari template
+            new_content = PAGE_TEMPLATE.replace("__BODY__", body)
     else:
-        new_content = README_INTRO + wrapped_body + README_OUTRO
+        new_content = PAGE_TEMPLATE.replace("__BODY__", body)
 
-    with open(readme_path, "w", encoding="utf-8") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(new_content)
 
-    return readme_path
+    return output_path
 
 
 def split_and_sort_by_signal(summary):
@@ -694,8 +799,8 @@ def main():
             _print_plain_group("Result -- Data tidak cukup / tanpa sinyal:", unknown)
 
     if detail_mode:
-        readme_path = write_readme(summary, bullish, bearish, unknown)
-        msg = f"\nREADME.md diperbarui: {os.path.abspath(readme_path)}"
+        html_path = write_html_report(summary, bullish, bearish, unknown)
+        msg = f"\nindex.html diperbarui: {os.path.abspath(html_path)}"
         console.print(f"[bold green]{msg}[/bold green]") if HAS_RICH else print(msg)
 
 if __name__ == "__main__":

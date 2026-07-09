@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hasil Backtest MACD (16/26/12)</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-card: #161b22;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --text-muted: #8b949e;
+  --accent: #58a6ff;
+  --green: #3fb950;
+  --red: #f85149;
+  --green-bg: rgba(63, 185, 80, 0.15);
+  --red-bg: rgba(248, 81, 73, 0.15);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+}
+.container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+h1 { font-size: 1.75rem; margin-bottom: 0.5rem; color: #fff; }
+h2 {
+  font-size: 1.25rem; margin-top: 2.5rem; margin-bottom: 1rem;
+  color: #fff; display: flex; align-items: center; gap: 0.6rem;
+}
+p { color: var(--text); }
+code {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px;
+  padding: 0.1rem 0.4rem; font-size: 0.9em; color: var(--accent);
+}
+a { color: var(--accent); }
+.intro {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+  padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
+}
+.meta-info {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+  padding: 1rem 1.5rem; margin: 1rem 0 1.5rem;
+}
+.meta-info p { margin: 0.4rem 0; font-size: 0.92rem; color: var(--text-muted); }
+.warning-box {
+  border-left: 3px solid #d29922; background: rgba(210, 153, 34, 0.1);
+  padding: 1rem 1.25rem; border-radius: 6px; margin: 1.25rem 0; font-size: 0.92rem;
+}
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 640px; }
+thead th {
+  text-align: left; background: var(--bg-card); color: var(--text-muted);
+  font-weight: 600; padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+tbody td { padding: 0.65rem 1rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: rgba(255,255,255,0.03); }
+.positive { color: var(--green); font-weight: 600; }
+.negative { color: var(--red); font-weight: 600; }
+.dash { color: var(--text-muted); }
+.badge {
+  display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.03em;
+}
+.signal-buy { background: var(--green-bg); color: var(--green); }
+.signal-sell { background: var(--red-bg); color: var(--red); }
+.signal-detail { color: var(--text-muted); font-size: 0.85rem; }
+footer {
+  margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
+  color: var(--text-muted); font-size: 0.85rem;
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Hasil Pengujian MACD Crossover (16/26/12)</h1>
+<div class="intro">
+<p>Halaman ini berisi hasil pengujian strategi <em>MACD crossover</em> (beli saat garis
+MACD memotong ke atas garis sinyal, jual saat memotong ke bawah) pada berbagai
+aset kripto, timeframe daily, dengan asumsi fee trading 0,15% per sisi.</p>
+
+<p>Parameter <code>16/26/12</code> bersifat <strong>tetap untuk semua pair</strong>
+(tidak di-grid-search ulang per aset). Parameter ini dipilih lewat pengujian
+yang menguji generalisasi satu setup tunggal lintas 16 pair, tervalidasi melalui
+in-sample/out-of-sample split dan walk-forward analysis (expanding window, 5 fold,
+tanpa refitting per pair). Setup ini unggul di seluruh metrik walk-forward genuine
+dibanding kandidat lain yang diuji, termasuk default klasik 12/26/9.</p>
+
+<div class="warning-box">
+Karena sudah melalui OOS split dan walk-forward, hasil di bawah ini bukan lagi
+murni in-sample — namun tetap bukan jaminan performa live. Walk-forward genuine
+menunjukkan hanya ~52% fold individual yang positif dan ~65% pair yang signifikan
+secara statistik (bootstrap p&lt;0,05); artinya edge ada tapi tidak seragam di semua
+pair maupun di semua periode. Gunakan sebagai salah satu input keputusan, bukan
+sinyal mutlak, dan pertimbangkan manajemen risiko (position sizing, bukan all-in)
+terutama pada pair dengan riwayat maximum drawdown dalam.
+</div>
+
+<p>Data mentah dan script pengujian tersedia untuk diverifikasi/diuji ulang secara
+mandiri di <a href="https://github.com/Rovikin/web/tree/main/chart">github.com/Rovikin/web/tree/main/chart</a>.</p>
+
+<p>Tidak ada lagi filter kelayakan (calmar minimum / jumlah trade minimum) — seluruh
+pair yang berhasil diuji ditampilkan apa adanya, termasuk yang trade-nya sedikit.</p>
+</div>
+
+<!-- BACKTEST_RESULTS_START -->
+<div class="meta-info">
+<p><strong>Fee yang digunakan:</strong> 0.15% per sisi (0.3% round-trip)</p>
+<p><strong>Parameter MACD (tetap, semua pair):</strong> <code>16/26/12</code></p>
+<p><strong>Sinyal Terakhir</strong> menunjukkan sudah berapa hari sejak crossover MACD terakhir terjadi, dihitung sampai candle paling akhir di data (BUY = masih dalam posisi terbuka, SELL = sudah keluar dan menunggu sinyal beli berikutnya). Kedua tabel di bawah diurutkan dari sinyal paling baru ke paling lama.</p>
+</div>
+<h2>Result — Bullish <span class="badge signal-buy">Sinyal BUY</span></h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Pair</th><th>Timeframe</th><th>Total Candle</th><th>Return</th><th>Max DD</th><th>Buy &amp; Hold</th><th>Trades</th><th>Sinyal Terakhir</th></tr></thead>
+<tbody>
+<tr><td><strong>BNBUSDT</strong></td><td>1 Day</td><td>3167</td><td><span class="positive">+1655.47%</span></td><td><span class="negative">-47.34%</span></td><td>+36097.33%</td><td>86</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">4 hari lalu (masih holding)</span></td></tr>
+<tr><td><strong>HBARUSDT</strong></td><td>1 Day</td><td>2475</td><td><span class="positive">+206.94%</span></td><td><span class="negative">-90.50%</span></td><td>+95.05%</td><td>77</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">4 hari lalu (masih holding)</span></td></tr>
+<tr><td><strong>DOGEUSDT</strong></td><td>1 Day</td><td>2561</td><td><span class="positive">+3051.64%</span></td><td><span class="negative">-73.14%</span></td><td>+1771.53%</td><td>65</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">5 hari lalu (masih holding)</span></td></tr>
+<tr><td><strong>ZECUSDT</strong></td><td>1 Day</td><td>2667</td><td><span class="positive">+2743.66%</span></td><td><span class="negative">-79.91%</span></td><td>+745.10%</td><td>74</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">5 hari lalu (masih holding)</span></td></tr>
+<tr><td><strong>LINKUSDT</strong></td><td>1 Day</td><td>2731</td><td><span class="positive">+2553.02%</span></td><td><span class="negative">-67.71%</span></td><td>+1460.98%</td><td>81</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">6 hari lalu (masih holding)</span></td></tr>
+<tr><td><strong>PAXGUSDT</strong></td><td>1 Day</td><td>2141</td><td><span class="positive">+20.24%</span></td><td><span class="negative">-16.37%</span></td><td>+105.92%</td><td>70</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">6 hari lalu (masih holding)</span></td></tr>
+<tr><td><strong>XMRUSD</strong></td><td>1 Day</td><td>725</td><td><span class="positive">+109.16%</span></td><td><span class="negative">-13.14%</span></td><td>+99.97%</td><td>20</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">6 hari lalu (masih holding)</span></td></tr>
+<tr><td><strong>XRPUSDT</strong></td><td>1 Day</td><td>2988</td><td><span class="positive">+3924.89%</span></td><td><span class="negative">-55.54%</span></td><td>+22.58%</td><td>78</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">6 hari lalu (masih holding)</span></td></tr>
+<tr><td><strong>AVAXUSDT</strong></td><td>1 Day</td><td>2116</td><td><span class="positive">+1739.44%</span></td><td><span class="negative">-73.10%</span></td><td>+21.73%</td><td>54</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">15 hari lalu (masih holding)</span></td></tr>
+<tr><td><strong>TRXUSDT</strong></td><td>1 Day</td><td>2950</td><td><span class="positive">+440.55%</span></td><td><span class="negative">-74.68%</span></td><td>+578.72%</td><td>91</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">17 hari lalu (masih holding)</span></td></tr>
+<tr><td><strong>ADAUSDT</strong></td><td>1 Day</td><td>3005</td><td><span class="positive">+1331.55%</span></td><td><span class="negative">-79.87%</span></td><td>-31.12%</td><td>81</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">21 hari lalu (masih holding)</span></td></tr>
+<tr><td><strong>BTCUSDT</strong></td><td>1 Day</td><td>3248</td><td><span class="positive">+4143.00%</span></td><td><span class="negative">-54.75%</span></td><td>+1353.65%</td><td>92</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">23 hari lalu (masih holding)</span></td></tr>
+<tr><td><strong>ETHUSDT</strong></td><td>1 Day</td><td>3248</td><td><span class="positive">+2711.25%</span></td><td><span class="negative">-59.34%</span></td><td>+477.33%</td><td>91</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">23 hari lalu (masih holding)</span></td></tr>
+<tr><td><strong>SOLUSDT</strong></td><td>1 Day</td><td>2158</td><td><span class="positive">+15198.77%</span></td><td><span class="negative">-69.89%</span></td><td>+2259.56%</td><td>54</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">23 hari lalu (masih holding)</span></td></tr>
+</tbody></table></div>
+<h2>Result — Bearish <span class="badge signal-sell">Sinyal SELL</span></h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Pair</th><th>Timeframe</th><th>Total Candle</th><th>Return</th><th>Max DD</th><th>Buy &amp; Hold</th><th>Trades</th><th>Sinyal Terakhir</th></tr></thead>
+<tbody>
+<tr><td><strong>NEARUSDT</strong></td><td>1 Day</td><td>2094</td><td><span class="positive">+376.01%</span></td><td><span class="negative">-68.88%</span></td><td>+61.92%</td><td>60</td><td><span class="badge signal-sell">SELL</span> <span class="signal-detail">Hari ini (menunggu sinyal beli)</span></td></tr>
+<tr><td><strong>XLMUSDT</strong></td><td>1 Day</td><td>2961</td><td><span class="positive">+451.92%</span></td><td><span class="negative">-70.84%</span></td><td>-38.68%</td><td>86</td><td><span class="badge signal-sell">SELL</span> <span class="signal-detail">1 hari lalu (menunggu sinyal beli)</span></td></tr>
+</tbody></table></div>
+<!-- BACKTEST_RESULTS_END -->
+
+<footer>
+Dihasilkan otomatis oleh <code>backtest.py</code>. Metodologi: MACD crossover (16/26/12),
+parameter tetap untuk semua pair, long-only, fee dihitung di setiap entry &amp; exit,
+tanpa slippage. Divalidasi IS/OOS split + walk-forward expanding window. Data dan
+script pengujian: <a href="https://github.com/Rovikin/web/tree/main/chart">github.com/Rovikin/web/tree/main/chart</a>
+— silakan uji ulang secara mandiri.
+</footer>
+
+</div>
+</body>
+</html>
