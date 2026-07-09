@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Top 100 marketcap</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #121212;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      background: #1e1e1e;
+      padding: 1em;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 2000;
+    }
+    header h1 {
+      font-size: 1.1em;
+      margin-left: 0.6em;
+    }
+    footer {
+      background: #1e1e1e;
+      color: #ccc;
+      text-align: center;
+      padding: 1em;
+      font-size: 0.9em;
+      margin-top: 2em;
+    }
+    footer a {
+      color: #4fc3f7;
+      text-decoration: none;
+    }
+    .hamburger {
+      cursor: pointer;
+      font-size: 1.5em;
+      background: none;
+      color: white;
+      border: none;
+    }
+    #sidebar {
+      position: fixed;
+      top: 0;
+      left: -100%;
+      width: 250px;
+      height: 100vh;
+      background: #1e1e1e;
+      overflow-y: auto;
+      transition: left 0.3s ease;
+      padding: 5em 1em 1em 1em;
+      z-index: 1000;
+    }
+    #sidebar.open {
+      left: 0;
+    }
+    .coin {
+      background: #222;
+      color: white;
+      padding: 0.5em;
+      margin-bottom: 0.5em;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .coin:hover {
+      background: #444;
+    }
+    #overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.4);
+      display: none;
+      z-index: 900;
+    }
+    #overlay.active {
+      display: block;
+    }
+    #content {
+      margin-top: 5em;
+      width: 100%;
+    }
+    #detail {
+      margin: auto;
+      padding: 1em;
+      text-align: center;
+      max-width: 800px;
+    }
+    table {
+      width: 100%;
+      max-width: 100%;
+      border-collapse: collapse;
+      margin-top: 1em;
+      background: #1e1e1e;
+      font-size: 0.9em;
+    }
+    th, td {
+      padding: 0.6em;
+      border: 1px solid #444;
+      text-align: left;
+    }
+    th {
+      background: #222;
+    }
+    #gauge-wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      margin: 1.5em auto;
+      width: 100%;
+      max-width: 260px;
+    }
+    #gauge {
+      position: relative;
+      width: 100%;
+      height: auto;
+    }
+    #gauge canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    #needle {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 4px;
+      height: 100%;
+      background: blue;
+      transform-origin: bottom center;
+      transform: rotate(0deg);
+      transition: transform 0.5s ease;
+      z-index: 2;
+    }
+    #gauge-label {
+      margin-top: 1em;
+      font-size: 1.1em;
+      font-weight: bold;
+    }
+    @media (max-width: 768px) {
+      table {
+        font-size: 0.85em;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <button class="hamburger" onclick="toggleSidebar()">☰</button>
+  <h1>Top 100 marketcap</h1>
+</header>
+<div id="overlay" onclick="closeSidebar()"></div>
+<div id="sidebar"></div>
+<div id="content">
+  <div id="detail">
+    <div id="gauge-wrapper">
+      <div id="gauge">
+        <canvas id="gauge-canvas" width="250" height="125"></canvas>
+        <div id="needle"></div>
+      </div>
+      <div id="gauge-label">Memuat...</div>
+    </div>
+  </div>
+  <footer>
+    Data koin diambil dari <a href="https://www.coingecko.com" target="_blank">CoinGecko</a>.<br>
+    Index Fear and Greed dari <a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank">Alternative.me</a>.
+  </footer>
+</div>
+
+<script>
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+  const isOpen = sidebar.classList.contains('open');
+  sidebar.classList.toggle('open');
+  overlay.classList.toggle('active', !isOpen);
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('active');
+}
+async function fetchTopCoins() {
+  try {
+    const res = await fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1");
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const data = await res.json();
+    return data.filter(coin => coin && coin.id && coin.symbol && coin.name);
+  } catch (err) {
+    alert("Gagal memuat data koin: " + err.message);
+    return [];
+  }
+}
+async function fetchDetail(id) {
+  try {
+    const res = await fetch(`https://api.coingecko.com/api/v3/coins/${id}?localization=false`);
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    alert("Gagal memuat detail koin: " + err.message);
+    return null;
+  }
+}
+function drawGaugeBackground() {
+  const canvas = document.getElementById("gauge-canvas");
+  const ctx = canvas.getContext("2d");
+  const radius = canvas.width / 2;
+  const cx = canvas.width / 2;
+  const cy = canvas.height;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const gradient = ctx.createLinearGradient(0, cy, canvas.width, cy);
+  gradient.addColorStop(0.0, "#ff0000");
+  gradient.addColorStop(0.5, "#ffff00");
+  gradient.addColorStop(1.0, "#00ff00");
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, Math.PI, 2 * Math.PI);
+  ctx.lineTo(cx, cy);
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+}
+async function fetchFearGreedIndex() {
+  try {
+    const res = await fetch("https://api.alternative.me/fng/");
+    const data = await res.json();
+    const value = parseInt(data.data[0].value);
+    const label = data.data[0].value_classification;
+    document.getElementById("needle").style.transform = `rotate(${value * 1.8 - 90}deg)`;
+    document.getElementById("gauge-label").textContent = `${label} (${value})`;
+  } catch (err) {
+    console.error("Gagal memuat Fear & Greed Index:", err);
+  }
+}
+function renderCoins(coins) {
+  const sidebar = document.getElementById('sidebar');
+  sidebar.innerHTML = '';
+  coins.forEach((coin, idx) => {
+    const el = document.createElement('div');
+    el.className = 'coin';
+    el.textContent = `${idx + 1}. ${coin.symbol.toUpperCase()} - ${coin.name}`;
+    el.onclick = async () => {
+      closeSidebar();
+      const detail = await fetchDetail(coin.id);
+      if (detail) renderDetail(detail);
+    }
+    sidebar.appendChild(el);
+  });
+}
+function renderDetail(coin) {
+  const el = document.getElementById('detail');
+  const m = coin.market_data;
+  if (!m || !m.current_price || !m.ath) return;
+  const athDown = m.current_price.usd < m.ath.usd ? ((m.ath.usd - m.current_price.usd) / m.ath.usd * 100).toFixed(2) : 0;
+  const athUp = m.current_price.usd > 0 ? ((m.ath.usd - m.current_price.usd) / m.current_price.usd * 100).toFixed(2) : 'N/A';
+  const formatUSD = (val) => `$${val?.toLocaleString('en-US', {maximumFractionDigits: 2})}`;
+  const formatIDR = (val) => `Rp${val?.toLocaleString('id-ID', {maximumFractionDigits: 0})}`;
+  let maxSupplyText = 'Tidak diketahui';
+  if (m.max_supply === null && ["xmr", "eth", "doge", "xrp", "bnb"].includes(coin.symbol.toLowerCase())) {
+    maxSupplyText = 'Tak terbatas ♾️';
+  } else if (m.max_supply !== null) {
+    maxSupplyText = `${m.max_supply.toLocaleString('id-ID', { maximumFractionDigits: 0 })} ${coin.symbol.toUpperCase()}`;
+  }
+  el.innerHTML = `
+    <h2>📊 ${coin.name} (${coin.symbol.toUpperCase()})</h2>
+    <table>
+      <tr><th>Harga USD</th><td>${formatUSD(m.current_price.usd)}</td></tr>
+      <tr><th>Harga IDR</th><td>${formatIDR(m.current_price.idr)}</td></tr>
+      <tr><th>Market Cap USD</th><td>${formatUSD(m.market_cap.usd)}</td></tr>
+      <tr><th>Market Cap IDR</th><td>${formatIDR(m.market_cap.idr)}</td></tr>
+      <tr><th>Market Cap Rank</th><td>${coin.market_cap_rank}</td></tr>
+      <tr><th>Volume 24h USD</th><td>${formatUSD(m.total_volume.usd)}</td></tr>
+      <tr><th>Volume 24h IDR</th><td>${formatIDR(m.total_volume.idr)}</td></tr>
+      <tr><th>Jumlah Beredar</th><td>${m.circulating_supply?.toLocaleString('id-ID', { maximumFractionDigits: 2 })} ${coin.symbol.toUpperCase()}</td></tr>
+      <tr><th>Max Supply</th><td>${maxSupplyText}</td></tr>
+      <tr><th>ATH (USD)</th><td>${formatUSD(m.ath.usd)}<br>${m.ath_date.usd.substring(0, 10)}</td></tr>
+      <tr><th>ATH (IDR)</th><td>${formatIDR(m.ath.idr)}<br>${m.ath_date.idr.substring(0, 10)}</td></tr>
+      <tr><th>Perubahan 24 jam</th><td>${m.price_change_percentage_24h?.toFixed(2)}%</td></tr>
+      <tr><th>Perubahan 7 hari</th><td>${m.price_change_percentage_7d?.toFixed(2)}%</td></tr>
+      <tr><th>Perubahan 30 hari</th><td>${m.price_change_percentage_30d?.toFixed(2)}%</td></tr>
+      <tr><th>Penurunan dari ATH</th><td>-${athDown}%</td></tr>
+      <tr><th>Kenaikan ke ATH</th><td>${athUp}%</td></tr>
+    </table>
+  `;
+}
+drawGaugeBackground();
+fetchTopCoins().then(renderCoins);
+fetchFearGreedIndex();
+</script>
+
+</body>
+</html>

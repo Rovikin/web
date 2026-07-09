@@ -4,144 +4,293 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hasil Backtest MACD (16/26/12)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #0d1117;
-  --bg-card: #161b22;
-  --border: #30363d;
-  --text: #c9d1d9;
-  --text-muted: #8b949e;
-  --accent: #58a6ff;
-  --green: #3fb950;
-  --red: #f85149;
-  --green-bg: rgba(63, 185, 80, 0.15);
-  --red-bg: rgba(248, 81, 73, 0.15);
+  --bg: #0a0b0c;
+  --bg-raised: #121416;
+  --bg-card: #16181b;
+  --line: #26292d;
+  --line-soft: #1c1e21;
+  --text: #d8d6d0;
+  --text-muted: #83817b;
+  --text-dim: #56544f;
+  --serif: 'Fraunces', Georgia, serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --buy: #5eead4;
+  --buy-dim: rgba(94, 234, 212, 0.10);
+  --sell: #d97c4a;
+  --sell-dim: rgba(217, 124, 74, 0.10);
+  --sig: #8a8f98;
 }
+
 * { box-sizing: border-box; }
+
 body {
   margin: 0;
-  padding: 0;
   background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 900px 500px at 50% -10%, rgba(94, 234, 212, 0.05), transparent);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: var(--mono);
+  font-size: 14px;
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
 }
-.container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
-h1 { font-size: 1.75rem; margin-bottom: 0.5rem; color: #fff; }
-h2 {
-  font-size: 1.25rem; margin-top: 2.5rem; margin-bottom: 1rem;
-  color: #fff; display: flex; align-items: center; gap: 0.6rem;
+
+.container { max-width: 1180px; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+
+/* ---------- Masthead ---------- */
+.masthead {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  flex-wrap: wrap; gap: 1rem 2rem;
+  padding-bottom: 1.5rem; margin-bottom: 1.75rem;
+  border-bottom: 1px solid var(--line);
 }
-p { color: var(--text); }
-code {
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px;
-  padding: 0.1rem 0.4rem; font-size: 0.9em; color: var(--accent);
+.masthead .eyebrow {
+  font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 0.6rem;
 }
-a { color: var(--accent); }
-.intro {
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
-  padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
+.masthead h1 {
+  font-family: var(--serif); font-weight: 500; font-optical-sizing: auto;
+  font-size: clamp(1.7rem, 4vw, 2.5rem); line-height: 1.1;
+  color: #f2f1ec; margin: 0; letter-spacing: -0.01em;
 }
-.meta-info {
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
-  padding: 1rem 1.5rem; margin: 1rem 0 1.5rem;
+.masthead .params {
+  text-align: right; font-size: 0.78rem; color: var(--text-muted);
+  white-space: nowrap;
 }
-.meta-info p { margin: 0.4rem 0; font-size: 0.92rem; color: var(--text-muted); }
-.warning-box {
-  border-left: 3px solid #d29922; background: rgba(210, 153, 34, 0.1);
-  padding: 1rem 1.25rem; border-radius: 6px; margin: 1.25rem 0; font-size: 0.92rem;
+.masthead .params strong { color: var(--text); font-weight: 500; }
+.masthead .params .src { margin-top: 0.35rem; }
+.masthead .params a { color: var(--buy); text-decoration: none; border-bottom: 1px dotted rgba(94,234,212,0.4); }
+.masthead .params a:hover { border-bottom-style: solid; }
+
+/* ---------- Section labels ---------- */
+.section-label {
+  display: flex; align-items: center; gap: 0.7rem;
+  margin: 2.25rem 0 0.85rem;
+  font-size: 0.8rem; letter-spacing: 0.06em;
 }
-.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem; }
-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 640px; }
+.section-label .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.section-label.buy .dot { background: var(--buy); box-shadow: 0 0 8px rgba(94,234,212,0.6); }
+.section-label.sell .dot { background: var(--sell); box-shadow: 0 0 8px rgba(217,124,74,0.5); }
+.section-label .count {
+  color: var(--text-dim); font-weight: 400;
+}
+.section-label span.label { color: #f2f1ec; font-weight: 600; text-transform: uppercase; }
+
+/* ---------- Table ---------- */
+/* Diperkecil dibanding tema asli: font, padding, dan min-width tabel diturunkan
+   supaya di layar sempit (mis. HP) lebih dari 2 kolom terlihat sebelum harus digulir. */
+.table-wrap {
+  border: 1px solid var(--line); border-radius: 3px;
+  background: var(--bg-raised);
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+table { width: 100%; border-collapse: collapse; min-width: 560px; }
 thead th {
-  text-align: left; background: var(--bg-card); color: var(--text-muted);
-  font-weight: 600; padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); white-space: nowrap;
+  text-align: left; font-weight: 500; font-size: 0.62rem;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-dim); padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--line); white-space: nowrap;
+  background: var(--bg-card);
 }
-tbody td { padding: 0.65rem 1rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th.num, td.num { text-align: right; }
+tbody td {
+  padding: 0.42rem 0.6rem; border-bottom: 1px solid var(--line-soft);
+  white-space: nowrap; font-size: 0.76rem;
+}
 tbody tr:last-child td { border-bottom: none; }
-tbody tr:hover { background: rgba(255,255,255,0.03); }
-.positive { color: var(--green); font-weight: 600; }
-.negative { color: var(--red); font-weight: 600; }
-.dash { color: var(--text-muted); }
-.badge {
-  display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px;
-  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.03em;
+tbody tr { position: relative; transition: background 0.12s ease; }
+tbody tr:hover { background: rgba(255,255,255,0.02); }
+tbody tr.sig-row td:first-child { box-shadow: inset 3px 0 0 var(--buy); }
+tbody tr.sell-row.sig-row td:first-child { box-shadow: inset 3px 0 0 var(--sell); }
+td.pair { font-family: var(--serif); font-weight: 500; color: #f2f1ec; font-size: 0.82rem; }
+td.pair .tf { color: var(--text-dim); font-size: 0.64rem; font-family: var(--mono); margin-left: 0.3rem; }
+
+/* return bar */
+.ret-cell { position: relative; }
+.ret-bar {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: linear-gradient(90deg, rgba(94,234,212,0.14), rgba(94,234,212,0.03));
 }
-.signal-buy { background: var(--green-bg); color: var(--green); }
-.signal-sell { background: var(--red-bg); color: var(--red); }
-.signal-detail { color: var(--text-muted); font-size: 0.85rem; }
+.ret-bar.neg { background: linear-gradient(90deg, rgba(217,124,74,0.14), rgba(217,124,74,0.03)); }
+.ret-value { position: relative; font-weight: 600; }
+.positive { color: var(--buy); }
+.negative { color: var(--sell); }
+.muted-num { color: var(--text-muted); }
+
+.badge {
+  display: inline-block; padding: 0.08rem 0.4rem; border-radius: 2px;
+  font-size: 0.6rem; font-weight: 600; letter-spacing: 0.04em;
+  border: 1px solid;
+}
+.signal-buy { background: var(--buy-dim); color: var(--buy); border-color: rgba(94,234,212,0.25); }
+.signal-sell { background: var(--sell-dim); color: var(--sell); border-color: rgba(217,124,74,0.25); }
+.signal-detail { color: var(--text-dim); font-size: 0.68rem; margin-left: 0.35rem; }
+.dash { color: var(--text-dim); }
+
+.legend {
+  display: flex; gap: 1.5rem; flex-wrap: wrap;
+  margin-top: 0.75rem; font-size: 0.72rem; color: var(--text-dim);
+}
+.legend .swatch { display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+.legend .swatch .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+/* ---------- Prose / explanatory section ---------- */
+.prose-section {
+  margin-top: 3.5rem; padding-top: 2rem; border-top: 1px solid var(--line);
+}
+.prose-section .eyebrow {
+  font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 1rem;
+}
+.prose-section p {
+  font-family: var(--serif); font-size: 1.02rem; line-height: 1.7;
+  color: #b8b6b0; max-width: 68ch; margin: 0 0 1.1rem;
+}
+.prose-section code {
+  font-family: var(--mono); background: var(--bg-card); border: 1px solid var(--line);
+  border-radius: 3px; padding: 0.05rem 0.4rem; font-size: 0.82em; color: var(--buy);
+}
+.prose-section a { color: var(--buy); text-decoration: none; border-bottom: 1px dotted rgba(94,234,212,0.4); }
+.prose-section a:hover { border-bottom-style: solid; }
+
+.field-note {
+  font-family: var(--mono); font-size: 0.82rem; color: var(--text-muted);
+  background: var(--bg-card); border: 1px solid var(--line); border-left: 2px solid var(--sell);
+  padding: 1rem 1.25rem; border-radius: 0 3px 3px 0; margin: 1.5rem 0; max-width: 68ch;
+  line-height: 1.7;
+}
+.field-note .tag { color: var(--sell); font-weight: 600; }
+
 footer {
-  margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
-  color: var(--text-muted); font-size: 0.85rem;
+  margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
+  color: var(--text-dim); font-size: 0.76rem; max-width: 68ch;
+}
+footer a { color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .masthead { flex-direction: column; align-items: flex-start; }
+  .masthead .params { text-align: left; }
+  td.tf-col, th.tf-col { display: none; }
 }
 </style>
 </head>
 <body>
 <div class="container">
 
-<h1>Hasil Pengujian MACD Crossover (16/26/12)</h1>
-<div class="intro">
-<p>Halaman ini berisi hasil pengujian strategi <em>MACD crossover</em> (beli saat garis
-MACD memotong ke atas garis sinyal, jual saat memotong ke bawah) pada berbagai
-aset kripto, timeframe daily, dengan asumsi fee trading 0,15% per sisi.</p>
-
-<p>Parameter <code>16/26/12</code> bersifat <strong>tetap untuk semua pair</strong>
-(tidak di-grid-search ulang per aset). Parameter ini dipilih lewat pengujian
-yang menguji generalisasi satu setup tunggal lintas 16 pair, tervalidasi melalui
-in-sample/out-of-sample split dan walk-forward analysis (expanding window, 5 fold,
-tanpa refitting per pair). Setup ini unggul di seluruh metrik walk-forward genuine
-dibanding kandidat lain yang diuji, termasuk default klasik 12/26/9.</p>
-
-<div class="warning-box">
-Karena sudah melalui OOS split dan walk-forward, hasil di bawah ini bukan lagi
-murni in-sample — namun tetap bukan jaminan performa live. Walk-forward genuine
-menunjukkan hanya ~52% fold individual yang positif dan ~65% pair yang signifikan
-secara statistik (bootstrap p&lt;0,05); artinya edge ada tapi tidak seragam di semua
-pair maupun di semua periode. Gunakan sebagai salah satu input keputusan, bukan
-sinyal mutlak, dan pertimbangkan manajemen risiko (position sizing, bukan all-in)
-terutama pada pair dengan riwayat maximum drawdown dalam.
-</div>
-
-<p>Data mentah dan script pengujian tersedia untuk diverifikasi/diuji ulang secara
-mandiri di <a href="https://github.com/Rovikin/web/tree/main/chart">github.com/Rovikin/web/tree/main/chart</a>.</p>
-
-<p>Tidak ada lagi filter kelayakan (calmar minimum / jumlah trade minimum) — seluruh
-pair yang berhasil diuji ditampilkan apa adanya, termasuk yang trade-nya sedikit.</p>
+<div class="masthead">
+  <div>
+    <div class="eyebrow">Backtest Read-Out</div>
+    <h1>MACD Crossover 16/26/12</h1>
+  </div>
+  <div class="params">
+    <div><strong>Fee:</strong> 0.15%/sisi &nbsp;·&nbsp; <strong>Timeframe:</strong> daily &nbsp;·&nbsp; <strong>Mode:</strong> Long-only</div>
+    <div class="src">Script &amp; data: <a href="https://github.com/Rovikin/web/tree/main/chart">github.com/Rovikin/web/chart</a></div>
+  </div>
 </div>
 
 <!-- BACKTEST_RESULTS_START -->
-<div class="meta-info">
-<p><strong>Fee yang digunakan:</strong> 0.15% per sisi (0.3% round-trip)</p>
-<p><strong>Parameter MACD (tetap, semua pair):</strong> <code>16/26/12</code></p>
-<p><strong>Sinyal Terakhir</strong> menunjukkan sudah berapa hari sejak crossover MACD terakhir terjadi, dihitung sampai candle paling akhir di data (BUY = masih dalam posisi terbuka, SELL = sudah keluar dan menunggu sinyal beli berikutnya). Kedua tabel di bawah diurutkan dari sinyal paling baru ke paling lama.</p>
+<div class="section-label buy">
+<span class="dot"></span><span class="label">Bullish</span>
+<span class="count">— posisi masih terbuka, sinyal BUY belum berbalik (49 pair)</span>
 </div>
-<h2>Result — Bullish <span class="badge signal-buy">Sinyal BUY</span></h2>
 <div class="table-wrap"><table>
-<thead><tr><th>Pair</th><th>Timeframe</th><th>Total Candle</th><th>Return</th><th>Max DD</th><th>Buy &amp; Hold</th><th>Trades</th><th>Sinyal Terakhir</th></tr></thead>
+<thead><tr><th>Pair</th><th class="tf-col">Candle</th><th class="num">Return</th><th class="num">Max DD</th><th class="num">Buy&amp;Hold</th><th class="num">Trades</th><th>Sinyal Terakhir</th></tr></thead>
 <tbody>
-<tr><td><strong>BNBUSDT</strong></td><td>1 Day</td><td>3167</td><td><span class="positive">+1655.47%</span></td><td><span class="negative">-47.34%</span></td><td>+36097.33%</td><td>86</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">4 hari lalu (masih holding)</span></td></tr>
-<tr><td><strong>HBARUSDT</strong></td><td>1 Day</td><td>2475</td><td><span class="positive">+206.94%</span></td><td><span class="negative">-90.50%</span></td><td>+95.05%</td><td>77</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">4 hari lalu (masih holding)</span></td></tr>
-<tr><td><strong>DOGEUSDT</strong></td><td>1 Day</td><td>2561</td><td><span class="positive">+3051.64%</span></td><td><span class="negative">-73.14%</span></td><td>+1771.53%</td><td>65</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">5 hari lalu (masih holding)</span></td></tr>
-<tr><td><strong>ZECUSDT</strong></td><td>1 Day</td><td>2667</td><td><span class="positive">+2743.66%</span></td><td><span class="negative">-79.91%</span></td><td>+745.10%</td><td>74</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">5 hari lalu (masih holding)</span></td></tr>
-<tr><td><strong>LINKUSDT</strong></td><td>1 Day</td><td>2731</td><td><span class="positive">+2553.02%</span></td><td><span class="negative">-67.71%</span></td><td>+1460.98%</td><td>81</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">6 hari lalu (masih holding)</span></td></tr>
-<tr><td><strong>PAXGUSDT</strong></td><td>1 Day</td><td>2141</td><td><span class="positive">+20.24%</span></td><td><span class="negative">-16.37%</span></td><td>+105.92%</td><td>70</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">6 hari lalu (masih holding)</span></td></tr>
-<tr><td><strong>XMRUSD</strong></td><td>1 Day</td><td>725</td><td><span class="positive">+109.16%</span></td><td><span class="negative">-13.14%</span></td><td>+99.97%</td><td>20</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">6 hari lalu (masih holding)</span></td></tr>
-<tr><td><strong>XRPUSDT</strong></td><td>1 Day</td><td>2988</td><td><span class="positive">+3924.89%</span></td><td><span class="negative">-55.54%</span></td><td>+22.58%</td><td>78</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">6 hari lalu (masih holding)</span></td></tr>
-<tr><td><strong>AVAXUSDT</strong></td><td>1 Day</td><td>2116</td><td><span class="positive">+1739.44%</span></td><td><span class="negative">-73.10%</span></td><td>+21.73%</td><td>54</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">15 hari lalu (masih holding)</span></td></tr>
-<tr><td><strong>TRXUSDT</strong></td><td>1 Day</td><td>2950</td><td><span class="positive">+440.55%</span></td><td><span class="negative">-74.68%</span></td><td>+578.72%</td><td>91</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">17 hari lalu (masih holding)</span></td></tr>
-<tr><td><strong>ADAUSDT</strong></td><td>1 Day</td><td>3005</td><td><span class="positive">+1331.55%</span></td><td><span class="negative">-79.87%</span></td><td>-31.12%</td><td>81</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">21 hari lalu (masih holding)</span></td></tr>
-<tr><td><strong>BTCUSDT</strong></td><td>1 Day</td><td>3248</td><td><span class="positive">+4143.00%</span></td><td><span class="negative">-54.75%</span></td><td>+1353.65%</td><td>92</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">23 hari lalu (masih holding)</span></td></tr>
-<tr><td><strong>ETHUSDT</strong></td><td>1 Day</td><td>3248</td><td><span class="positive">+2711.25%</span></td><td><span class="negative">-59.34%</span></td><td>+477.33%</td><td>91</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">23 hari lalu (masih holding)</span></td></tr>
-<tr><td><strong>SOLUSDT</strong></td><td>1 Day</td><td>2158</td><td><span class="positive">+15198.77%</span></td><td><span class="negative">-69.89%</span></td><td>+2259.56%</td><td>54</td><td><span class="badge signal-buy">BUY</span> <span class="signal-detail">23 hari lalu (masih holding)</span></td></tr>
+<tr class="sig-row"><td class="pair">ATOMUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2628</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-19.79%</span></td><td class="num negative">-86.46%</td><td class="num muted-num">-58.54%</td><td class="num muted-num">86</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">Hari ini</span></td></tr>
+<tr class="sig-row"><td class="pair">ENAUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">828</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-65.65%</span></td><td class="num negative">-72.00%</td><td class="num muted-num">-90.36%</td><td class="num muted-num">23</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">3 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">BNBUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">3167</td><td class="num ret-cell"><span class="ret-bar" style="width:11%"></span><span class="ret-value positive">+1655.47%</span></td><td class="num negative">-47.34%</td><td class="num muted-num">+36097.33%</td><td class="num muted-num">86</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">4 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">HBARUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2475</td><td class="num ret-cell"><span class="ret-bar" style="width:1%"></span><span class="ret-value positive">+206.94%</span></td><td class="num negative">-90.50%</td><td class="num muted-num">+95.05%</td><td class="num muted-num">77</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">4 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">ONDOUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">454</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-53.22%</span></td><td class="num negative">-59.75%</td><td class="num muted-num">-64.65%</td><td class="num muted-num">14</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">4 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">TAOUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">819</td><td class="num ret-cell"><span class="ret-bar" style="width:1%"></span><span class="ret-value positive">+14.16%</span></td><td class="num negative">-71.29%</td><td class="num muted-num">-67.13%</td><td class="num muted-num">24</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">4 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">DOGEUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2561</td><td class="num ret-cell"><span class="ret-bar" style="width:20%"></span><span class="ret-value positive">+3051.64%</span></td><td class="num negative">-73.14%</td><td class="num muted-num">+1771.53%</td><td class="num muted-num">65</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">5 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">DOTUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2151</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-76.76%</span></td><td class="num negative">-92.40%</td><td class="num muted-num">-73.32%</td><td class="num muted-num">67</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">5 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">NEXOUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">1532</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-38.22%</span></td><td class="num negative">-45.39%</td><td class="num muted-num">-68.34%</td><td class="num muted-num">51</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">5 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">PEPEUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">1161</td><td class="num ret-cell"><span class="ret-bar" style="width:2%"></span><span class="ret-value positive">+294.17%</span></td><td class="num negative">-78.97%</td><td class="num muted-num">-30.03%</td><td class="num muted-num">32</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">5 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">POLUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">664</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-77.65%</span></td><td class="num negative">-85.96%</td><td class="num muted-num">-81.39%</td><td class="num muted-num">25</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">5 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">QNTUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">1806</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-45.75%</span></td><td class="num negative">-65.36%</td><td class="num muted-num">-50.93%</td><td class="num muted-num">54</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">5 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">RENDERUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">713</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-58.43%</span></td><td class="num negative">-85.28%</td><td class="num muted-num">-77.29%</td><td class="num muted-num">22</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">5 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">SHIBUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">1886</td><td class="num ret-cell"><span class="ret-bar" style="width:1%"></span><span class="ret-value positive">+135.34%</span></td><td class="num negative">-86.25%</td><td class="num muted-num">-87.62%</td><td class="num muted-num">58</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">5 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">ZECUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2667</td><td class="num ret-cell"><span class="ret-bar" style="width:18%"></span><span class="ret-value positive">+2743.66%</span></td><td class="num negative">-79.91%</td><td class="num muted-num">+745.10%</td><td class="num muted-num">74</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">5 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">ALGOUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2574</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-64.89%</span></td><td class="num negative">-92.05%</td><td class="num muted-num">-96.13%</td><td class="num muted-num">72</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">6 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">ASTERUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">276</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-50.28%</span></td><td class="num negative">-50.28%</td><td class="num muted-num">-69.80%</td><td class="num muted-num">10</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">6 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">ICPUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">1885</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-85.20%</span></td><td class="num negative">-87.91%</td><td class="num muted-num">-99.39%</td><td class="num muted-num">51</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">6 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">LINKUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2731</td><td class="num ret-cell"><span class="ret-bar" style="width:17%"></span><span class="ret-value positive">+2553.02%</span></td><td class="num negative">-67.71%</td><td class="num muted-num">+1460.98%</td><td class="num muted-num">81</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">6 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">PAXGUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2141</td><td class="num ret-cell"><span class="ret-bar" style="width:1%"></span><span class="ret-value positive">+20.24%</span></td><td class="num negative">-16.37%</td><td class="num muted-num">+105.92%</td><td class="num muted-num">70</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">6 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">XMRUSD<span class="tf">1D</span></td><td class="tf-col muted-num">725</td><td class="num ret-cell"><span class="ret-bar" style="width:1%"></span><span class="ret-value positive">+109.16%</span></td><td class="num negative">-13.14%</td><td class="num muted-num">+99.97%</td><td class="num muted-num">20</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">6 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">XRPUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2988</td><td class="num ret-cell"><span class="ret-bar" style="width:26%"></span><span class="ret-value positive">+3924.89%</span></td><td class="num negative">-55.54%</td><td class="num muted-num">+22.58%</td><td class="num muted-num">78</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">6 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">SKYUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">295</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-20.12%</span></td><td class="num negative">-24.19%</td><td class="num muted-num">-27.47%</td><td class="num muted-num">12</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">7 hari lalu</span></td></tr>
+<tr class="sig-row"><td class="pair">YFIUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2159</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-59.59%</span></td><td class="num negative">-84.37%</td><td class="num muted-num">-63.24%</td><td class="num muted-num">60</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">7 hari lalu</span></td></tr>
+<tr><td class="pair">MORPHOUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">279</td><td class="num ret-cell"><span class="ret-bar" style="width:1%"></span><span class="ret-value positive">+28.12%</span></td><td class="num negative">-20.95%</td><td class="num muted-num">+9.24%</td><td class="num muted-num">7</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">8 hari lalu</span></td></tr>
+<tr><td class="pair">LITUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">1468</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-84.16%</span></td><td class="num negative">-88.50%</td><td class="num muted-num">-75.72%</td><td class="num muted-num">42</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">9 hari lalu</span></td></tr>
+<tr><td class="pair">PUMPUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">301</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-58.02%</span></td><td class="num negative">-58.02%</td><td class="num muted-num">-74.72%</td><td class="num muted-num">11</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">9 hari lalu</span></td></tr>
+<tr><td class="pair">PENGUUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">569</td><td class="num ret-cell"><span class="ret-bar" style="width:1%"></span><span class="ret-value positive">+31.38%</span></td><td class="num negative">-69.28%</td><td class="num muted-num">-78.49%</td><td class="num muted-num">14</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">11 hari lalu</span></td></tr>
+<tr><td class="pair">DEXEUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">1812</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-37.73%</span></td><td class="num negative">-93.26%</td><td class="num muted-num">+306.00%</td><td class="num muted-num">61</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">14 hari lalu</span></td></tr>
+<tr><td class="pair">AVAXUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2116</td><td class="num ret-cell"><span class="ret-bar" style="width:11%"></span><span class="ret-value positive">+1739.44%</span></td><td class="num negative">-73.10%</td><td class="num muted-num">+21.73%</td><td class="num muted-num">54</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">15 hari lalu</span></td></tr>
+<tr><td class="pair">TRXUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2950</td><td class="num ret-cell"><span class="ret-bar" style="width:3%"></span><span class="ret-value positive">+440.55%</span></td><td class="num negative">-74.68%</td><td class="num muted-num">+578.72%</td><td class="num muted-num">91</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">17 hari lalu</span></td></tr>
+<tr><td class="pair">JSTUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2158</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-20.45%</span></td><td class="num negative">-81.12%</td><td class="num muted-num">+37.66%</td><td class="num muted-num">69</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">18 hari lalu</span></td></tr>
+<tr><td class="pair">MINAUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">1794</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-88.80%</span></td><td class="num negative">-89.86%</td><td class="num muted-num">-98.56%</td><td class="num muted-num">48</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">20 hari lalu</span></td></tr>
+<tr><td class="pair">ADAUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">3005</td><td class="num ret-cell"><span class="ret-bar" style="width:9%"></span><span class="ret-value positive">+1331.55%</span></td><td class="num negative">-79.87%</td><td class="num muted-num">-31.12%</td><td class="num muted-num">81</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">21 hari lalu</span></td></tr>
+<tr><td class="pair">FILUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2093</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-36.39%</span></td><td class="num negative">-90.63%</td><td class="num muted-num">-98.78%</td><td class="num muted-num">55</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">21 hari lalu</span></td></tr>
+<tr><td class="pair">ETCUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2949</td><td class="num ret-cell"><span class="ret-bar" style="width:2%"></span><span class="ret-value positive">+339.17%</span></td><td class="num negative">-86.59%</td><td class="num muted-num">-52.83%</td><td class="num muted-num">87</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">22 hari lalu</span></td></tr>
+<tr><td class="pair">RAYUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">1794</td><td class="num ret-cell"><span class="ret-bar" style="width:1%"></span><span class="ret-value positive">+33.54%</span></td><td class="num negative">-90.73%</td><td class="num muted-num">-83.81%</td><td class="num muted-num">48</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">22 hari lalu</span></td></tr>
+<tr><td class="pair">SUIUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">1163</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-61.33%</span></td><td class="num negative">-69.68%</td><td class="num muted-num">-49.27%</td><td class="num muted-num">36</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">22 hari lalu</span></td></tr>
+<tr><td class="pair">AAVEUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2093</td><td class="num ret-cell"><span class="ret-bar" style="width:2%"></span><span class="ret-value positive">+276.51%</span></td><td class="num negative">-75.89%</td><td class="num muted-num">+105.40%</td><td class="num muted-num">58</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">23 hari lalu</span></td></tr>
+<tr><td class="pair">ARBUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">1204</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-84.18%</span></td><td class="num negative">-86.17%</td><td class="num muted-num">-94.18%</td><td class="num muted-num">36</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">23 hari lalu</span></td></tr>
+<tr><td class="pair">BCHUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2415</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-12.65%</span></td><td class="num negative">-81.17%</td><td class="num muted-num">+8.27%</td><td class="num muted-num">78</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">23 hari lalu</span></td></tr>
+<tr><td class="pair">BTCUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">3248</td><td class="num ret-cell"><span class="ret-bar" style="width:27%"></span><span class="ret-value positive">+4143.00%</span></td><td class="num negative">-54.75%</td><td class="num muted-num">+1353.65%</td><td class="num muted-num">92</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">23 hari lalu</span></td></tr>
+<tr><td class="pair">ETHUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">3248</td><td class="num ret-cell"><span class="ret-bar" style="width:18%"></span><span class="ret-value positive">+2711.25%</span></td><td class="num negative">-59.34%</td><td class="num muted-num">+477.33%</td><td class="num muted-num">91</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">23 hari lalu</span></td></tr>
+<tr><td class="pair">JUPUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">890</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-71.91%</span></td><td class="num negative">-81.07%</td><td class="num muted-num">-67.70%</td><td class="num muted-num">24</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">23 hari lalu</span></td></tr>
+<tr><td class="pair">LTCUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">3130</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-87.40%</span></td><td class="num negative">-90.68%</td><td class="num muted-num">-84.95%</td><td class="num muted-num">97</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">23 hari lalu</span></td></tr>
+<tr><td class="pair">SOLUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2158</td><td class="num ret-cell"><span class="ret-bar" style="width:100%"></span><span class="ret-value positive">+15198.77%</span></td><td class="num negative">-69.89%</td><td class="num muted-num">+2259.56%</td><td class="num muted-num">54</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">23 hari lalu</span></td></tr>
+<tr><td class="pair">UNIUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2121</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-21.65%</span></td><td class="num negative">-89.26%</td><td class="num muted-num">-5.25%</td><td class="num muted-num">66</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">23 hari lalu</span></td></tr>
+<tr><td class="pair">CAKEUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">1966</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-74.63%</span></td><td class="num negative">-86.97%</td><td class="num muted-num">-92.70%</td><td class="num muted-num">56</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">25 hari lalu</span></td></tr>
+<tr><td class="pair">WLFIUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">311</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-33.14%</span></td><td class="num negative">-40.03%</td><td class="num muted-num">-74.90%</td><td class="num muted-num">5</td><td><span class="badge signal-buy">BUY</span><span class="signal-detail">62 hari lalu</span></td></tr>
 </tbody></table></div>
-<h2>Result — Bearish <span class="badge signal-sell">Sinyal SELL</span></h2>
+<div class="section-label sell">
+<span class="dot"></span><span class="label">Bearish</span>
+<span class="count">— sudah keluar, menunggu sinyal beli berikutnya (5 pair)</span>
+</div>
 <div class="table-wrap"><table>
-<thead><tr><th>Pair</th><th>Timeframe</th><th>Total Candle</th><th>Return</th><th>Max DD</th><th>Buy &amp; Hold</th><th>Trades</th><th>Sinyal Terakhir</th></tr></thead>
+<thead><tr><th>Pair</th><th class="tf-col">Candle</th><th class="num">Return</th><th class="num">Max DD</th><th class="num">Buy&amp;Hold</th><th class="num">Trades</th><th>Sinyal Terakhir</th></tr></thead>
 <tbody>
-<tr><td><strong>NEARUSDT</strong></td><td>1 Day</td><td>2094</td><td><span class="positive">+376.01%</span></td><td><span class="negative">-68.88%</span></td><td>+61.92%</td><td>60</td><td><span class="badge signal-sell">SELL</span> <span class="signal-detail">Hari ini (menunggu sinyal beli)</span></td></tr>
-<tr><td><strong>XLMUSDT</strong></td><td>1 Day</td><td>2961</td><td><span class="positive">+451.92%</span></td><td><span class="negative">-70.84%</span></td><td>-38.68%</td><td>86</td><td><span class="badge signal-sell">SELL</span> <span class="signal-detail">1 hari lalu (menunggu sinyal beli)</span></td></tr>
+<tr class="sell-row sig-row"><td class="pair">NEARUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2094</td><td class="num ret-cell"><span class="ret-bar" style="width:2%"></span><span class="ret-value positive">+376.01%</span></td><td class="num negative">-68.88%</td><td class="num muted-num">+61.92%</td><td class="num muted-num">60</td><td><span class="badge signal-sell">SELL</span><span class="signal-detail">Hari ini</span></td></tr>
+<tr class="sell-row sig-row"><td class="pair">XLMUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2961</td><td class="num ret-cell"><span class="ret-bar" style="width:3%"></span><span class="ret-value positive">+451.92%</span></td><td class="num negative">-70.84%</td><td class="num muted-num">-38.68%</td><td class="num muted-num">86</td><td><span class="badge signal-sell">SELL</span><span class="signal-detail">1 hari lalu</span></td></tr>
+<tr class="sell-row"><td class="pair">LRCUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">2120</td><td class="num ret-cell"><span class="ret-bar" style="width:1%"></span><span class="ret-value positive">+96.37%</span></td><td class="num negative">-89.04%</td><td class="num muted-num">-81.93%</td><td class="num muted-num">60</td><td><span class="badge signal-sell">SELL</span><span class="signal-detail">13 hari lalu</span></td></tr>
+<tr class="sell-row"><td class="pair">ARKMUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">1087</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-89.22%</span></td><td class="num negative">-95.75%</td><td class="num muted-num">-83.08%</td><td class="num muted-num">39</td><td><span class="badge signal-sell">SELL</span><span class="signal-detail">15 hari lalu</span></td></tr>
+<tr class="sell-row"><td class="pair">WLDUSDT<span class="tf">1D</span></td><td class="tf-col muted-num">1081</td><td class="num ret-cell"><span class="ret-bar neg" style="width:1%"></span><span class="ret-value negative">-55.20%</span></td><td class="num negative">-94.64%</td><td class="num muted-num">-82.01%</td><td class="num muted-num">34</td><td><span class="badge signal-sell">SELL</span><span class="signal-detail">15 hari lalu</span></td></tr>
 </tbody></table></div>
+<div class="legend">
+<span class="swatch">bar di kolom Return = skala relatif terhadap return tertinggi (+15198.77%)</span>
+<span class="swatch">baris bergaris tepi = sinyal terjadi ≤ 7 hari terakhir</span>
+</div>
 <!-- BACKTEST_RESULTS_END -->
+
+<div class="prose-section">
+  <div class="eyebrow">Metodologi &amp; Batasan</div>
+
+  <p>Parameter <code>16/26/12</code> bersifat tetap untuk seluruh pair di atas
+  — tidak di-<em>grid-search</em> ulang per aset. Setup ini dipilih lewat pengujian generalisasi lintas
+  20 pair, tervalidasi melalui in-sample/out-of-sample split dan walk-forward analysis (expanding window,
+  5 fold, tanpa refitting per pair).</p>
+
+  <div class="field-note">
+    <span class="tag">[!]</span> Karena sudah melalui OOS split dan walk-forward, hasil di atas bukan lagi
+    murni in-sample — namun tetap bukan jaminan performa live. Gunakan sebagai salah satu input keputusan,
+    bukan sinyal mutlak, dan pertimbangkan manajemen risiko (position sizing, bukan all-in) terutama pada
+    pair dengan riwayat maximum drawdown dalam.
+  </div>
+
+  <p>Tidak ada filter kelayakan (calmar minimum / jumlah trade minimum) yang diterapkan — seluruh pair yang
+  berhasil diuji ditampilkan apa adanya, termasuk yang trade-nya sedikit. Data mentah dan script pengujian
+  tersedia untuk diverifikasi/diuji ulang secara mandiri di
+  <a href="https://github.com/Rovikin/web/tree/main/chart">github.com/Rovikin/web/tree/main/chart</a>.</p>
+</div>
 
 <footer>
 Dihasilkan otomatis oleh <code>backtest.py</code>. Metodologi: MACD crossover (16/26/12),

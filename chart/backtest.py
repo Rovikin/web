@@ -420,193 +420,331 @@ def _fmt_pct(val):
 
 
 def _fmt_last_signal_html(r):
-    """Format sinyal terakhir sebagai badge HTML: hijau untuk BUY (holding), merah untuk SELL (menunggu beli)."""
+    """Format sinyal terakhir sebagai badge HTML: hijau untuk BUY (holding), oranye untuk SELL (menunggu beli)."""
     if r.get('days_since_last_signal') is None or r.get('last_signal_type') is None:
         return '<span class="dash">-</span>'
     days_label = _days_label(r['days_since_last_signal'])
     sig_type = r['last_signal_type']
-    status = "masih holding" if sig_type == "BUY" else "menunggu sinyal beli"
     css_class = "signal-buy" if sig_type == "BUY" else "signal-sell"
-    return (f'<span class="badge {css_class}">{sig_type}</span> '
-            f'<span class="signal-detail">{_esc(days_label)} ({_esc(status)})</span>')
+    return (f'<span class="badge {css_class}">{sig_type}</span>'
+            f'<span class="signal-detail">{_esc(days_label)}</span>')
 
 
-def _html_table(headers, rows):
-    """Bangun tabel HTML dari header dan list-of-list baris (sel berisi HTML mentah, sudah di-escape sebelumnya)."""
+def _build_summary_table(group, max_abs_return):
+    """Bangun tabel HTML satu grup (bullish/bearish/unknown) mengikuti markup tema 'Backtest Read-Out'."""
     lines = ['<div class="table-wrap"><table>']
-    lines.append("<thead><tr>" + "".join(f"<th>{h}</th>" for h in headers) + "</tr></thead>")
-    lines.append("<tbody>")
-    for row in rows:
-        lines.append("<tr>" + "".join(f"<td>{c}</td>" for c in row) + "</tr>")
-    lines.append("</tbody></table></div>")
+    lines.append(
+        '<thead><tr>'
+        '<th>Pair</th>'
+        '<th class="tf-col">Candle</th>'
+        '<th class="num">Return</th>'
+        '<th class="num">Max DD</th>'
+        '<th class="num">Buy&amp;Hold</th>'
+        '<th class="num">Trades</th>'
+        '<th>Sinyal Terakhir</th>'
+        '</tr></thead>'
+    )
+    lines.append('<tbody>')
+
+    for path, result, bh, detail in group:
+        pair, tf_label = parse_filename(path)
+        candle_count = detail["total_candle"] if detail else "-"
+        tf_short = _esc(tf_label.replace(" Day", "D").replace(" Hour", "H")
+                         .replace(" Minute", "M").replace(" Week", "W").replace(" Month", "Mo")
+                         if tf_label != "-" else "-")
+
+        row_classes = []
+        if result is not None and result.get('last_signal_type') == 'SELL':
+            row_classes.append('sell-row')
+        if result is not None and result.get('days_since_last_signal') is not None \
+                and round(result['days_since_last_signal']) <= 7:
+            row_classes.append('sig-row')
+        cls_attr = f' class="{" ".join(row_classes)}"' if row_classes else ''
+
+        pair_cell = f'<td class="pair">{_esc(pair)}<span class="tf">{tf_short}</span></td>'
+        candle_cell = f'<td class="tf-col muted-num">{candle_count}</td>'
+
+        if result is None:
+            lines.append(
+                f'<tr{cls_attr}>{pair_cell}{candle_cell}'
+                '<td class="num ret-cell"><span class="dash">-</span></td>'
+                '<td class="num"><span class="dash">-</span></td>'
+                f'<td class="num muted-num">{_fmt_pct(bh)}</td>'
+                '<td class="num"><span class="dash">-</span></td>'
+                '<td><span class="dash">-</span></td></tr>'
+            )
+            continue
+
+        return_val = result['total_return_pct']
+        return_class = "positive" if return_val > 0 else "negative"
+        bar_class = "" if return_val > 0 else " neg"
+        width_pct = max(1, round(abs(return_val) / max_abs_return * 100)) if max_abs_return else 0
+        sig_label = _fmt_last_signal_html(result)
+
+        lines.append(
+            f'<tr{cls_attr}>{pair_cell}{candle_cell}'
+            f'<td class="num ret-cell"><span class="ret-bar{bar_class}" style="width:{width_pct}%"></span>'
+            f'<span class="ret-value {return_class}">{_fmt_pct(return_val)}</span></td>'
+            f'<td class="num negative">{result["max_dd_pct"]:.2f}%</td>'
+            f'<td class="num muted-num">{_fmt_pct(bh)}</td>'
+            f'<td class="num muted-num">{result["n_trades"]}</td>'
+            f'<td>{sig_label}</td></tr>'
+        )
+
+    lines.append('</tbody></table></div>')
     return "\n".join(lines)
 
 
 def generate_html_section(summary_with_detail, bullish, bearish, unknown):
     """
-    Bangun konten HTML (badan hasil saja, tanpa <head>/intro/footer halaman) dari hasil backtest MACD.
+    Bangun konten HTML (badan hasil saja, tanpa <head>/masthead/prose/footer halaman)
+    dari hasil backtest MACD, mengikuti tema visual 'Backtest Read-Out'.
     summary_with_detail: list of (path, result, bh, detail) -- diteruskan untuk kompatibilitas caller.
     bullish, bearish, unknown: hasil split_and_sort_by_signal -- masing-masing
     dirender sebagai satu tabel ringkas, diurutkan dari sinyal paling baru.
     """
+    all_returns = [r['total_return_pct'] for _, r, _, _ in (bullish + bearish + unknown) if r is not None]
+    max_abs_return = max((abs(v) for v in all_returns), default=0)
+
     lines = []
-    lines.append('<div class="meta-info">')
-    lines.append(f'<p><strong>Fee yang digunakan:</strong> {FEE_PCT}% per sisi ({2*FEE_PCT}% round-trip)</p>')
-    lines.append(f'<p><strong>Parameter MACD (tetap, semua pair):</strong> <code>{MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}</code></p>')
-    lines.append('<p><strong>Sinyal Terakhir</strong> menunjukkan sudah berapa hari sejak crossover MACD '
-                 'terakhir terjadi, dihitung sampai candle paling akhir di data '
-                 '(BUY = masih dalam posisi terbuka, SELL = sudah keluar dan menunggu sinyal beli berikutnya). '
-                 'Kedua tabel di bawah diurutkan dari sinyal paling baru ke paling lama.</p>')
-    lines.append('</div>')
-
-    headers = ["Pair", "Timeframe", "Total Candle",
-               "Return", "Max DD", "Buy &amp; Hold", "Trades", "Sinyal Terakhir"]
-
-    def _build_summary_table(group):
-        table_rows = []
-        for path, result, bh, detail in group:
-            pair, tf_label = parse_filename(path)
-            candle_count = detail["total_candle"] if detail else "-"
-            if result is None:
-                table_rows.append([
-                    f'<strong>{_esc(pair)}</strong>', _esc(tf_label), candle_count,
-                    '<span class="dash">-</span>', '<span class="dash">-</span>',
-                    _fmt_pct(bh), '<span class="dash">-</span>', '<span class="dash">-</span>',
-                ])
-            else:
-                return_val = result['total_return_pct']
-                return_class = "positive" if return_val > 0 else "negative"
-                sig_label = _fmt_last_signal_html(result)
-                table_rows.append([
-                    f'<strong>{_esc(pair)}</strong>', _esc(tf_label), candle_count,
-                    f'<span class="{return_class}">{_fmt_pct(return_val)}</span>',
-                    f'<span class="negative">{result["max_dd_pct"]:.2f}%</span>',
-                    _fmt_pct(bh),
-                    str(result['n_trades']),
-                    sig_label,
-                ])
-        return _html_table(headers, table_rows)
 
     if bullish:
-        lines.append('<h2>Result — Bullish <span class="badge signal-buy">Sinyal BUY</span></h2>')
-        lines.append(_build_summary_table(bullish))
+        lines.append('<div class="section-label buy">')
+        lines.append('<span class="dot"></span><span class="label">Bullish</span>')
+        lines.append(f'<span class="count">— posisi masih terbuka, sinyal BUY belum berbalik ({len(bullish)} pair)</span>')
+        lines.append('</div>')
+        lines.append(_build_summary_table(bullish, max_abs_return))
 
     if bearish:
-        lines.append('<h2>Result — Bearish <span class="badge signal-sell">Sinyal SELL</span></h2>')
-        lines.append(_build_summary_table(bearish))
+        lines.append('<div class="section-label sell">')
+        lines.append('<span class="dot"></span><span class="label">Bearish</span>')
+        lines.append(f'<span class="count">— sudah keluar, menunggu sinyal beli berikutnya ({len(bearish)} pair)</span>')
+        lines.append('</div>')
+        lines.append(_build_summary_table(bearish, max_abs_return))
 
     if unknown:
-        lines.append('<h2>Result — Data Tidak Cukup / Tanpa Sinyal</h2>')
-        lines.append(_build_summary_table(unknown))
+        lines.append('<div class="section-label">')
+        lines.append('<span class="dot" style="background:var(--text-dim)"></span><span class="label">Data Tidak Cukup</span>')
+        lines.append(f'<span class="count">— tanpa sinyal ({len(unknown)} pair)</span>')
+        lines.append('</div>')
+        lines.append(_build_summary_table(unknown, max_abs_return))
+
+    lines.append('<div class="legend">')
+    lines.append(f'<span class="swatch">bar di kolom Return = skala relatif terhadap return tertinggi ({_fmt_pct(max_abs_return)})</span>')
+    lines.append('<span class="swatch">baris bergaris tepi = sinyal terjadi ≤ 7 hari terakhir</span>')
+    lines.append('</div>')
 
     return "\n".join(lines)
 
 
 PAGE_CSS = """
 :root {
-  --bg: #0d1117;
-  --bg-card: #161b22;
-  --border: #30363d;
-  --text: #c9d1d9;
-  --text-muted: #8b949e;
-  --accent: #58a6ff;
-  --green: #3fb950;
-  --red: #f85149;
-  --green-bg: rgba(63, 185, 80, 0.15);
-  --red-bg: rgba(248, 81, 73, 0.15);
+  --bg: #0a0b0c;
+  --bg-raised: #121416;
+  --bg-card: #16181b;
+  --line: #26292d;
+  --line-soft: #1c1e21;
+  --text: #d8d6d0;
+  --text-muted: #83817b;
+  --text-dim: #56544f;
+  --serif: 'Fraunces', Georgia, serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --buy: #5eead4;
+  --buy-dim: rgba(94, 234, 212, 0.10);
+  --sell: #d97c4a;
+  --sell-dim: rgba(217, 124, 74, 0.10);
+  --sig: #8a8f98;
 }
+
 * { box-sizing: border-box; }
+
 body {
   margin: 0;
-  padding: 0;
   background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 900px 500px at 50% -10%, rgba(94, 234, 212, 0.05), transparent);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: var(--mono);
+  font-size: 14px;
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
 }
-.container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
-h1 { font-size: 1.75rem; margin-bottom: 0.5rem; color: #fff; }
-h2 {
-  font-size: 1.25rem; margin-top: 2.5rem; margin-bottom: 1rem;
-  color: #fff; display: flex; align-items: center; gap: 0.6rem;
+
+.container { max-width: 1180px; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+
+/* ---------- Masthead ---------- */
+.masthead {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  flex-wrap: wrap; gap: 1rem 2rem;
+  padding-bottom: 1.5rem; margin-bottom: 1.75rem;
+  border-bottom: 1px solid var(--line);
 }
-p { color: var(--text); }
-code {
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px;
-  padding: 0.1rem 0.4rem; font-size: 0.9em; color: var(--accent);
+.masthead .eyebrow {
+  font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 0.6rem;
 }
-a { color: var(--accent); }
-.intro {
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
-  padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
+.masthead h1 {
+  font-family: var(--serif); font-weight: 500; font-optical-sizing: auto;
+  font-size: clamp(1.7rem, 4vw, 2.5rem); line-height: 1.1;
+  color: #f2f1ec; margin: 0; letter-spacing: -0.01em;
 }
-.meta-info {
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
-  padding: 1rem 1.5rem; margin: 1rem 0 1.5rem;
+.masthead .params {
+  text-align: right; font-size: 0.78rem; color: var(--text-muted);
+  white-space: nowrap;
 }
-.meta-info p { margin: 0.4rem 0; font-size: 0.92rem; color: var(--text-muted); }
-.warning-box {
-  border-left: 3px solid #d29922; background: rgba(210, 153, 34, 0.1);
-  padding: 1rem 1.25rem; border-radius: 6px; margin: 1.25rem 0; font-size: 0.92rem;
+.masthead .params strong { color: var(--text); font-weight: 500; }
+.masthead .params .src { margin-top: 0.35rem; }
+.masthead .params a { color: var(--buy); text-decoration: none; border-bottom: 1px dotted rgba(94,234,212,0.4); }
+.masthead .params a:hover { border-bottom-style: solid; }
+
+/* ---------- Section labels ---------- */
+.section-label {
+  display: flex; align-items: center; gap: 0.7rem;
+  margin: 2.25rem 0 0.85rem;
+  font-size: 0.8rem; letter-spacing: 0.06em;
 }
-.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem; }
-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 640px; }
+.section-label .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.section-label.buy .dot { background: var(--buy); box-shadow: 0 0 8px rgba(94,234,212,0.6); }
+.section-label.sell .dot { background: var(--sell); box-shadow: 0 0 8px rgba(217,124,74,0.5); }
+.section-label .count {
+  color: var(--text-dim); font-weight: 400;
+}
+.section-label span.label { color: #f2f1ec; font-weight: 600; text-transform: uppercase; }
+
+/* ---------- Table ---------- */
+/* Diperkecil dibanding tema asli: font, padding, dan min-width tabel diturunkan
+   supaya di layar sempit (mis. HP) lebih dari 2 kolom terlihat sebelum harus digulir. */
+.table-wrap {
+  border: 1px solid var(--line); border-radius: 3px;
+  background: var(--bg-raised);
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+table { width: 100%; border-collapse: collapse; min-width: 560px; }
 thead th {
-  text-align: left; background: var(--bg-card); color: var(--text-muted);
-  font-weight: 600; padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); white-space: nowrap;
+  text-align: left; font-weight: 500; font-size: 0.62rem;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-dim); padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--line); white-space: nowrap;
+  background: var(--bg-card);
 }
-tbody td { padding: 0.65rem 1rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th.num, td.num { text-align: right; }
+tbody td {
+  padding: 0.42rem 0.6rem; border-bottom: 1px solid var(--line-soft);
+  white-space: nowrap; font-size: 0.76rem;
+}
 tbody tr:last-child td { border-bottom: none; }
-tbody tr:hover { background: rgba(255,255,255,0.03); }
-.positive { color: var(--green); font-weight: 600; }
-.negative { color: var(--red); font-weight: 600; }
-.dash { color: var(--text-muted); }
-.badge {
-  display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px;
-  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.03em;
+tbody tr { position: relative; transition: background 0.12s ease; }
+tbody tr:hover { background: rgba(255,255,255,0.02); }
+tbody tr.sig-row td:first-child { box-shadow: inset 3px 0 0 var(--buy); }
+tbody tr.sell-row.sig-row td:first-child { box-shadow: inset 3px 0 0 var(--sell); }
+td.pair { font-family: var(--serif); font-weight: 500; color: #f2f1ec; font-size: 0.82rem; }
+td.pair .tf { color: var(--text-dim); font-size: 0.64rem; font-family: var(--mono); margin-left: 0.3rem; }
+
+/* return bar */
+.ret-cell { position: relative; }
+.ret-bar {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: linear-gradient(90deg, rgba(94,234,212,0.14), rgba(94,234,212,0.03));
 }
-.signal-buy { background: var(--green-bg); color: var(--green); }
-.signal-sell { background: var(--red-bg); color: var(--red); }
-.signal-detail { color: var(--text-muted); font-size: 0.85rem; }
+.ret-bar.neg { background: linear-gradient(90deg, rgba(217,124,74,0.14), rgba(217,124,74,0.03)); }
+.ret-value { position: relative; font-weight: 600; }
+.positive { color: var(--buy); }
+.negative { color: var(--sell); }
+.muted-num { color: var(--text-muted); }
+
+.badge {
+  display: inline-block; padding: 0.08rem 0.4rem; border-radius: 2px;
+  font-size: 0.6rem; font-weight: 600; letter-spacing: 0.04em;
+  border: 1px solid;
+}
+.signal-buy { background: var(--buy-dim); color: var(--buy); border-color: rgba(94,234,212,0.25); }
+.signal-sell { background: var(--sell-dim); color: var(--sell); border-color: rgba(217,124,74,0.25); }
+.signal-detail { color: var(--text-dim); font-size: 0.68rem; margin-left: 0.35rem; }
+.dash { color: var(--text-dim); }
+
+.legend {
+  display: flex; gap: 1.5rem; flex-wrap: wrap;
+  margin-top: 0.75rem; font-size: 0.72rem; color: var(--text-dim);
+}
+.legend .swatch { display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+.legend .swatch .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+/* ---------- Prose / explanatory section ---------- */
+.prose-section {
+  margin-top: 3.5rem; padding-top: 2rem; border-top: 1px solid var(--line);
+}
+.prose-section .eyebrow {
+  font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 1rem;
+}
+.prose-section p {
+  font-family: var(--serif); font-size: 1.02rem; line-height: 1.7;
+  color: #b8b6b0; max-width: 68ch; margin: 0 0 1.1rem;
+}
+.prose-section code {
+  font-family: var(--mono); background: var(--bg-card); border: 1px solid var(--line);
+  border-radius: 3px; padding: 0.05rem 0.4rem; font-size: 0.82em; color: var(--buy);
+}
+.prose-section a { color: var(--buy); text-decoration: none; border-bottom: 1px dotted rgba(94,234,212,0.4); }
+.prose-section a:hover { border-bottom-style: solid; }
+
+.field-note {
+  font-family: var(--mono); font-size: 0.82rem; color: var(--text-muted);
+  background: var(--bg-card); border: 1px solid var(--line); border-left: 2px solid var(--sell);
+  padding: 1rem 1.25rem; border-radius: 0 3px 3px 0; margin: 1.5rem 0; max-width: 68ch;
+  line-height: 1.7;
+}
+.field-note .tag { color: var(--sell); font-weight: 600; }
+
 footer {
-  margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
-  color: var(--text-muted); font-size: 0.85rem;
+  margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
+  color: var(--text-dim); font-size: 0.76rem; max-width: 68ch;
+}
+footer a { color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .masthead { flex-direction: column; align-items: flex-start; }
+  .masthead .params { text-align: left; }
+  td.tf-col, th.tf-col { display: none; }
 }
 """
 
 PAGE_INTRO = f"""
-<h1>Hasil Pengujian MACD Crossover ({MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL})</h1>
-<div class="intro">
-<p>Halaman ini berisi hasil pengujian strategi <em>MACD crossover</em> (beli saat garis
-MACD memotong ke atas garis sinyal, jual saat memotong ke bawah) pada berbagai
-aset kripto, timeframe daily, dengan asumsi fee trading 0,15% per sisi.</p>
-
-<p>Parameter <code>{MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}</code> bersifat <strong>tetap untuk semua pair</strong>
-(tidak di-grid-search ulang per aset). Parameter ini dipilih lewat pengujian
-yang menguji generalisasi satu setup tunggal lintas 16 pair, tervalidasi melalui
-in-sample/out-of-sample split dan walk-forward analysis (expanding window, 5 fold,
-tanpa refitting per pair). Setup ini unggul di seluruh metrik walk-forward genuine
-dibanding kandidat lain yang diuji, termasuk default klasik 12/26/9.</p>
-
-<div class="warning-box">
-Karena sudah melalui OOS split dan walk-forward, hasil di bawah ini bukan lagi
-murni in-sample — namun tetap bukan jaminan performa live. Walk-forward genuine
-menunjukkan hanya ~52% fold individual yang positif dan ~65% pair yang signifikan
-secara statistik (bootstrap p&lt;0,05); artinya edge ada tapi tidak seragam di semua
-pair maupun di semua periode. Gunakan sebagai salah satu input keputusan, bukan
-sinyal mutlak, dan pertimbangkan manajemen risiko (position sizing, bukan all-in)
-terutama pada pair dengan riwayat maximum drawdown dalam.
-</div>
-
-<p>Data mentah dan script pengujian tersedia untuk diverifikasi/diuji ulang secara
-mandiri di <a href="https://github.com/Rovikin/web/tree/main/chart">github.com/Rovikin/web/tree/main/chart</a>.</p>
-
-<p>Tidak ada lagi filter kelayakan (calmar minimum / jumlah trade minimum) — seluruh
-pair yang berhasil diuji ditampilkan apa adanya, termasuk yang trade-nya sedikit.</p>
+<div class="masthead">
+  <div>
+    <div class="eyebrow">Backtest Read-Out</div>
+    <h1>MACD Crossover {MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}</h1>
+  </div>
+  <div class="params">
+    <div><strong>Fee:</strong> {FEE_PCT}%/sisi &nbsp;\u00b7&nbsp; <strong>Timeframe:</strong> daily &nbsp;\u00b7&nbsp; <strong>Mode:</strong> Long-only</div>
+    <div class="src">Script &amp; data: <a href="https://github.com/Rovikin/web/tree/main/chart">github.com/Rovikin/web/chart</a></div>
+  </div>
 </div>
 """
 
 PAGE_OUTRO = f"""
+<div class="prose-section">
+  <div class="eyebrow">Metodologi &amp; Batasan</div>
+
+  <p>Parameter <code>{MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}</code> bersifat tetap untuk seluruh pair di atas
+  — tidak di-<em>grid-search</em> ulang per aset. Setup ini dipilih lewat pengujian generalisasi lintas
+  20 pair, tervalidasi melalui in-sample/out-of-sample split dan walk-forward analysis (expanding window,
+  5 fold, tanpa refitting per pair).</p>
+
+  <div class="field-note">
+    <span class="tag">[!]</span> Karena sudah melalui OOS split dan walk-forward, hasil di atas bukan lagi
+    murni in-sample — namun tetap bukan jaminan performa live. Gunakan sebagai salah satu input keputusan,
+    bukan sinyal mutlak, dan pertimbangkan manajemen risiko (position sizing, bukan all-in) terutama pada
+    pair dengan riwayat maximum drawdown dalam.
+  </div>
+
+  <p>Tidak ada filter kelayakan (calmar minimum / jumlah trade minimum) yang diterapkan — seluruh pair yang
+  berhasil diuji ditampilkan apa adanya, termasuk yang trade-nya sedikit. Data mentah dan script pengujian
+  tersedia untuk diverifikasi/diuji ulang secara mandiri di
+  <a href="https://github.com/Rovikin/web/tree/main/chart">github.com/Rovikin/web/tree/main/chart</a>.</p>
+</div>
+
 <footer>
 Dihasilkan otomatis oleh <code>backtest.py</code>. Metodologi: MACD crossover ({MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}),
 parameter tetap untuk semua pair, long-only, fee dihitung di setiap entry &amp; exit,
@@ -627,6 +765,9 @@ PAGE_TEMPLATE = f"""<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{PAGE_TITLE}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>{PAGE_CSS}</style>
 </head>
 <body>
