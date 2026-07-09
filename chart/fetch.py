@@ -99,17 +99,19 @@ def next_candle_due_at(last_open_time_ms, interval):
     server (Binance/Kraken) bisa dilewati sepenuhnya.
 
     last_open_time_ms adalah open_time candle TERAKHIR yang sudah tersimpan
-    (dan sudah dipastikan closed). Candle berikutnya baru closed setelah
-    1 step penuh lagi sejak candle itu ditutup, yaitu di
-    last_open_time_ms + 2*step (buka candle berikutnya di +1*step, tutup di
-    +2*step). Ditambah buffer kecil (1% dari step, minimum 30 detik) untuk
-    toleransi jeda waktu server.
+    (dan sudah dipastikan closed). Candle berikutnya closed tepat 1 step
+    setelah ia dibuka, yaitu di last_open_time_ms + 2*step (buka di +1*step,
+    tutup di +2*step). Tidak ada buffer tambahan -- begitu waktu sekarang
+    melewati titik itu, candle berikutnya dipastikan sudah closed dan aman
+    untuk direquest. (Sebelumnya ada buffer 1% dari step sebagai toleransi
+    jeda jam server, tapi untuk interval besar seperti harian itu berarti
+    ~14 menit tambahan yang tidak perlu -- dihapus atas masukan langsung:
+    perbandingan waktu closed yang eksak sudah cukup, tanpa perlu buffer.)
     """
     step = INTERVAL_MS.get(interval)
     if step is None:
         return None  # interval tak dikenal -- aman: selalu request seperti biasa
-    buffer_ms = max(30_000, int(step * 0.01))
-    return last_open_time_ms + (2 * step) + buffer_ms
+    return last_open_time_ms + (2 * step)
 
 
 
