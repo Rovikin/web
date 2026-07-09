@@ -1,13 +1,29 @@
-# Hasil Pengujian EMA Crossover
+# Hasil Pengujian MACD Crossover (16/26/12)
 
-Repositori ini berisi hasil pengujian sistematis strategi *dual EMA crossover*
-(beli saat EMA cepat memotong ke atas EMA lambat, jual saat memotong ke bawah)
-pada berbagai aset kripto, timeframe daily, dengan asumsi fee trading 0,15% per sisi.
+Repositori ini berisi hasil pengujian strategi *MACD crossover* (beli saat garis
+MACD memotong ke atas garis sinyal, jual saat memotong ke bawah) pada berbagai
+aset kripto, timeframe daily, dengan asumsi fee trading 0,15% per sisi.
 
-Pengujian dilakukan dengan grid search murni (mencoba banyak kombinasi EMA fast/slow),
-mengambil kombinasi dengan return tertinggi sebagai representasi tiap aset. Hasil ini
-bersifat in-sample (belum divalidasi walk-forward out-of-sample) kecuali disebutkan lain,
-sehingga sebaiknya tidak dijadikan dasar tunggal untuk keputusan trading nyata.
+Parameter `16/26/12` bersifat **tetap untuk semua pair**
+(tidak di-grid-search ulang per aset). Parameter ini dipilih lewat pengujian
+yang menguji generalisasi satu setup tunggal lintas 20 pair, tervalidasi melalui
+in-sample/out-of-sample split dan walk-forward analysis (expanding window, 5 fold,
+tanpa refitting per pair). Setup ini unggul di seluruh metrik walk-forward genuine
+dibanding kandidat lain yang diuji, termasuk default klasik 12/26/9.
+
+Karena sudah melalui OOS split dan walk-forward, hasil di bawah ini bukan lagi
+murni in-sample -- namun tetap bukan jaminan performa live. Walk-forward genuine
+menunjukkan hanya ~52% fold individual yang positif dan ~65% pair yang signifikan
+secara statistik (bootstrap p<0,05); artinya edge ada tapi tidak seragam di semua
+pair maupun di semua periode. Gunakan sebagai salah satu input keputusan, bukan
+sinyal mutlak, dan pertimbangkan manajemen risiko (position sizing, bukan all-in)
+terutama pada pair dengan riwayat maximum drawdown dalam.
+
+Data mentah dan script pengujian tersedia untuk diverifikasi/diuji ulang secara
+mandiri di [github.com/Rovikin/web/tree/main/chart](https://github.com/Rovikin/web/tree/main/chart).
+
+Tidak ada lagi filter kelayakan (calmar minimum / jumlah trade minimum) -- seluruh
+pair yang berhasil diuji ditampilkan apa adanya, termasuk yang trade-nya sedikit.
 
 Data & hasil di bawah ini dihasilkan otomatis oleh `backtest.py` dan diperbarui
 setiap kali script dijalankan dengan flag `--detail`.
@@ -56,6 +72,8 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 ---
 
-_Dihasilkan otomatis oleh `backtest.py`. Metodologi: dual EMA crossover, long-only,
-fee dihitung di setiap entry & exit, tanpa slippage. Hasil in-sample murni --
-lihat catatan walk-forward terpisah untuk validasi out-of-sample._
+_Dihasilkan otomatis oleh `backtest.py`. Metodologi: MACD crossover (16/26/12),
+parameter tetap untuk semua pair, long-only, fee dihitung di setiap entry & exit,
+tanpa slippage. Divalidasi IS/OOS split + walk-forward expanding window. Data dan
+script pengujian: [github.com/Rovikin/web/tree/main/chart](https://github.com/Rovikin/web/tree/main/chart) --
+silakan uji ulang secara mandiri._
