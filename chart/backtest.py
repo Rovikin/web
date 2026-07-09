@@ -1,6 +1,7 @@
 """
-Optimasi EMA Crossover -- PURE PYTHON, tanpa numpy/pandas.
-Mencoba banyak kombinasi fast/slow, lalu menampilkan yang terbaik.
+Backtest MACD Crossover (16/26/12) -- PURE PYTHON, tanpa numpy/pandas.
+Parameter tunggal tetap, hasil riset generalisasi lintas 20 pair (IS/OOS split
++ walk-forward analysis expanding window). Bukan lagi grid search in-sample.
 Kompatibel dengan Termux standar tanpa instalasi library tambahan.
 
 Cara pakai:
@@ -20,6 +21,13 @@ Perintah biasa (tanpa --detail) TIDAK pernah menyentuh README.md.
 Jika README.md sudah ada, hanya bagian di antara marker
 <!-- BACKTEST_RESULTS_START --> ... <!-- BACKTEST_RESULTS_END -->
 yang diperbarui -- konten lain yang Anda tulis manual di luar marker tetap aman.
+
+CATATAN METODE:
+Versi ini TIDAK lagi melakukan grid search EMA in-sample. Parameter MACD
+16/26/12 dipakai tetap untuk semua pair, hasil dari riset terpisah yang
+menguji generalisasi 1 parameter tunggal lintas 20 pair memakai IS/OOS split
+dan walk-forward analysis (expanding window, 5 fold). Tidak ada lagi filter
+kelayakan (MIN_CALMAR/MIN_TRADES) -- semua pair ditampilkan apa adanya.
 """
 import csv
 import glob
@@ -41,29 +49,21 @@ except ImportError:
 
 FEE_PCT = 0.15
 
-# Filter kualitas: kombinasi EMA dengan calmar di bawah ambang ini TIDAK dianggap
-# layak dijadikan "best" / sinyal utama, meskipun total return-nya tinggi.
-# Rasional: calmar rendah berarti return tsb ditebus oleh drawdown yang dalam --
-# secara risk-adjusted tidak sepadan untuk dijadikan acuan sinyal beli.
-MIN_CALMAR = 0.5
+# Parameter MACD tetap -- hasil riset generalisasi lintas 20 pair (IS/OOS +
+# walk-forward expanding window, 5 fold). Setup ini menang di semua metrik
+# walk-forward genuine dibanding kandidat lain (termasuk default klasik 12/26/9):
+# 90% pair dengan return WF rata-rata positif, median Sharpe per fold 0.368,
+# median Calmar per fold 0.126, 65% pair signifikan pada uji bootstrap (p<0.05).
+# TIDAK di-grid-search ulang per pair -- sengaja satu parameter untuk semua,
+# supaya bot live punya satu codepath sederhana dan tidak overfit per aset.
+MACD_FAST = 16
+MACD_SLOW = 26
+MACD_SIGNAL = 12
 
-# Filter kualitas kedua: kombinasi EMA dengan jumlah trade closed di bawah ambang
-# ini TIDAK dianggap layak dijadikan "best", meskipun calmar-nya tinggi.
-# Rasional: calmar tinggi yang dibangun dari sedikit trade (contoh empiris: SOLUSDT
-# EMA 20/150 calmar=609 dari 7 trade) terbukti tidak robust -- begitu sampel
-# diperbesar, calmar riilnya jatuh signifikan dan drawdown sebenarnya jauh lebih
-# dalam dari yang terlihat. Ambang 15 dipilih sebagai heuristik minimum sampel
-# yang cukup untuk menghindari overfitting pada grid search in-sample.
-MIN_TRADES = 15
-
-# Direktori cache -- menyimpan hasil grid search per file CSV agar tidak
+# Direktori cache -- menyimpan hasil backtest per file CSV agar tidak
 # dihitung ulang jika file sumber belum berubah.
 CACHE_DIR = ".backtest_cache"
-CACHE_VERSION = 1  # naikkan jika format/logic hasil berubah, agar cache lama otomatis diabaikan
-
-# Grid pencarian -- bisa diubah sesuai kebutuhan
-FAST_CANDIDATES = [5, 8, 9, 10, 12, 15, 20, 25, 30, 40]
-SLOW_CANDIDATES = [20, 26, 30, 40, 50, 75, 100, 150, 200]
+CACHE_VERSION = 2  # dinaikkan: format/logic berubah dari grid EMA ke MACD tetap
 
 # Label timeframe untuk ditampilkan di ringkasan (dari kode interval Binance/umum)
 TIMEFRAME_LABELS = {
@@ -164,11 +164,19 @@ def ema_series(closes, span):
         ema.append(alpha * price + (1 - alpha) * ema[-1])
     return ema
 
-def backtest_dual_ema(closes, fast, slow, open_times=None):
-    n = len(closes)
+def macd_series(closes, fast, slow, signal):
+    """Hitung garis MACD (EMA cepat - EMA lambat) dan garis sinyal (EMA dari MACD)."""
     ema_fast = ema_series(closes, fast)
     ema_slow = ema_series(closes, slow)
-    above = [ema_fast[i] > ema_slow[i] for i in range(n)]
+    macd_line = [f - s for f, s in zip(ema_fast, ema_slow)]
+    signal_line = ema_series(macd_line, signal)
+    return macd_line, signal_line
+
+
+def backtest_macd(closes, fast, slow, signal, open_times=None):
+    n = len(closes)
+    macd_line, signal_line = macd_series(closes, fast, slow, signal)
+    above = [macd_line[i] > signal_line[i] for i in range(n)]
 
     trades = []
     position = None
@@ -225,7 +233,7 @@ def backtest_dual_ema(closes, fast, slow, open_times=None):
         days_since_last_signal = (open_times[-1] - open_times[last_signal_idx]) / 86400000  # ms -> hari
 
     return {
-        'fast': fast, 'slow': slow,
+        'fast': fast, 'slow': slow, 'signal': signal,
         'n_trades': len(trades),
         'win_rate': win_rate,
         'total_return_pct': total_return,
@@ -279,13 +287,13 @@ def _file_fingerprint(path):
             hasher.update(chunk)
     content_hash = hasher.hexdigest()
 
-    grid_signature = json.dumps(
-        {"fast": FAST_CANDIDATES, "slow": SLOW_CANDIDATES, "fee": FEE_PCT, "v": CACHE_VERSION},
+    param_signature = json.dumps(
+        {"fast": MACD_FAST, "slow": MACD_SLOW, "signal": MACD_SIGNAL, "fee": FEE_PCT, "v": CACHE_VERSION},
         sort_keys=True,
     )
-    grid_hash = hashlib.blake2b(grid_signature.encode("utf-8"), digest_size=8).hexdigest()
+    param_hash = hashlib.blake2b(param_signature.encode("utf-8"), digest_size=8).hexdigest()
 
-    return f"{content_hash}_{grid_hash}_{stat.st_size}"
+    return f"{content_hash}_{param_hash}_{stat.st_size}"
 
 
 def _cache_path_for(path):
@@ -311,16 +319,15 @@ def _load_cache(path, fingerprint):
     return cached
 
 
-def _save_cache(path, fingerprint, bh_return, results, results_calmar, total_candle):
-    """Simpan hasil grid search ke cache sebagai JSON."""
+def _save_cache(path, fingerprint, bh_return, result, total_candle):
+    """Simpan hasil backtest MACD (parameter tunggal) ke cache sebagai JSON."""
     os.makedirs(CACHE_DIR, exist_ok=True)
     cache_file = _cache_path_for(path)
     payload = {
         "fingerprint": fingerprint,
         "bh_return": bh_return,
         "total_candle": total_candle,
-        "results": results,
-        "results_calmar": results_calmar,
+        "result": result,
     }
     tmp_file = cache_file + ".tmp"
     with open(tmp_file, "w", encoding="utf-8") as f:
@@ -330,9 +337,10 @@ def _save_cache(path, fingerprint, bh_return, results, results_calmar, total_can
 
 def run_one_file(path, verbose=True, collect_detail=False, use_cache=True):
     """
-    Jalankan optimasi penuh untuk satu file CSV.
-    Return (path, best_result_or_None, bh_return, detail_dict_or_None).
-    detail_dict berisi top10_return & top10_calmar -- dipakai untuk render markdown.
+    Jalankan backtest MACD (parameter tetap 16/26/12) untuk satu file CSV.
+    Return (path, result_or_None, bh_return, detail_dict_or_None).
+    Tidak ada lagi filter kelayakan -- result ditampilkan apa adanya, termasuk
+    pair dengan jumlah trade sedikit.
     """
     fingerprint = _file_fingerprint(path) if use_cache else None
     cached = _load_cache(path, fingerprint) if use_cache else None
@@ -340,8 +348,7 @@ def run_one_file(path, verbose=True, collect_detail=False, use_cache=True):
     if cached is not None:
         bh_return = cached["bh_return"]
         total_candle = cached["total_candle"]
-        results = cached["results"]
-        results_calmar = cached["results_calmar"]
+        result = cached["result"]
         from_cache = True
     else:
         from_cache = False
@@ -359,84 +366,39 @@ def run_one_file(path, verbose=True, collect_detail=False, use_cache=True):
             console.print(f"[bold cyan]Total candle[/bold cyan]: {total_candle}")
             console.print(f"[bold cyan]Fee[/bold cyan]         : {FEE_PCT}% per sisi ({2*FEE_PCT}% round-trip)")
             console.print(f"[bold cyan]Buy & Hold[/bold cyan]  : {bh_return:.2f}%")
-            if not from_cache:
-                console.print(f"Mencoba {len(FAST_CANDIDATES) * len(SLOW_CANDIDATES)} kombinasi EMA...\n")
+            console.print(f"[bold cyan]MACD[/bold cyan]        : {MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}")
         else:
             print(f"File        : {path}{cache_note}")
             print(f"Total candle: {total_candle}")
             print(f"Fee         : {FEE_PCT}% per sisi ({2*FEE_PCT}% round-trip)")
             print(f"Buy & Hold  : {bh_return:.2f}%")
-            if not from_cache:
-                print(f"Mencoba {len(FAST_CANDIDATES) * len(SLOW_CANDIDATES)} kombinasi EMA...\n")
+            print(f"MACD        : {MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}")
 
     if not from_cache:
-        results = []
-        for fast in FAST_CANDIDATES:
-            for slow in SLOW_CANDIDATES:
-                if fast >= slow:
-                    continue
-                r = backtest_dual_ema(closes, fast, slow, open_times=open_times)
-                if r:
-                    results.append(r)
+        result = backtest_macd(closes, MACD_FAST, MACD_SLOW, MACD_SIGNAL, open_times=open_times)
 
-        if not results:
+        if result is None:
             if verbose:
-                msg = "Tidak ada kombinasi yang menghasilkan trade cukup."
+                msg = "Data tidak cukup untuk menghasilkan trade (minimal 3 trade closed)."
                 console.print(f"[red]{msg}[/red]") if HAS_RICH else print(msg)
-            return path, None, bh_return, None
-
-        results.sort(key=lambda x: x['total_return_pct'], reverse=True)
-        results_calmar = sorted(results, key=lambda x: x['calmar'], reverse=True)
+            return path, None, bh_return, {"total_candle": total_candle} if collect_detail else None
 
         if use_cache:
-            _save_cache(path, fingerprint, bh_return, results, results_calmar, total_candle)
+            _save_cache(path, fingerprint, bh_return, result, total_candle)
 
-    # Filter kombinasi yang lolos DUA ambang -- calmar minimum DAN jumlah trade
-    # minimum -- inilah kandidat yang layak dijadikan "best" / dasar sinyal utama.
-    # Diambil dari results_calmar (terurut calmar tertinggi -> terendah) sehingga
-    # best = kandidat dengan calmar tertinggi DI ANTARA yang sudah lolos kedua
-    # threshold kelayakan, bukan return tertinggi seperti versi sebelumnya.
-    qualified = [r for r in results_calmar if r['calmar'] >= MIN_CALMAR and r['n_trades'] >= MIN_TRADES]
-
-    if verbose:
-        if HAS_RICH:
-            _print_rich_table("TOP 10 berdasarkan Total Return", results[:10])
-            _print_rich_table("TOP 10 berdasarkan Calmar (risk-adjusted)", results_calmar[:10])
-        else:
-            print("=== TOP 10 berdasarkan Total Return ===")
-            print(f"{'Fast':>5} {'Slow':>5} {'Trades':>7} {'WinRate':>8} {'Return%':>12} {'MaxDD%':>9} {'Calmar':>8} {'SinyalTerakhir':>16}")
-            for r in results[:10]:
-                sig = _fmt_last_signal(r)
-                print(f"{r['fast']:>5} {r['slow']:>5} {r['n_trades']:>7} {r['win_rate']:>7.1f}% {r['total_return_pct']:>11.2f}% {r['max_dd_pct']:>8.2f}% {r['calmar']:>8.2f} {sig:>16}")
-
-            print("\n=== TOP 10 berdasarkan Calmar (risk-adjusted) ===")
-            print(f"{'Fast':>5} {'Slow':>5} {'Trades':>7} {'WinRate':>8} {'Return%':>12} {'MaxDD%':>9} {'Calmar':>8} {'SinyalTerakhir':>16}")
-            for r in results_calmar[:10]:
-                sig = _fmt_last_signal(r)
-                print(f"{r['fast']:>5} {r['slow']:>5} {r['n_trades']:>7} {r['win_rate']:>7.1f}% {r['total_return_pct']:>11.2f}% {r['max_dd_pct']:>8.2f}% {r['calmar']:>8.2f} {sig:>16}")
-
-        if qualified:
-            best = qualified[0]
-            rekomendasi = (f"\n>> Rekomendasi (calmar tertinggi, calmar >= {MIN_CALMAR}, "
-                          f"trades >= {MIN_TRADES}): "
-                          f"EMA {best['fast']}/{best['slow']} (calmar={best['calmar']:.2f})")
-            console.print(f"[bold green]{rekomendasi}[/bold green]") if HAS_RICH else print(rekomendasi)
-        else:
-            best = None
-            peringatan = (f"\n>> Tidak ada kombinasi yang lolos ambang calmar minimum ({MIN_CALMAR}). "
-                         f"Semua sinyal return-tertinggi untuk aset ini ditolak karena risk-adjusted "
-                         f"return-nya buruk (drawdown terlalu dalam relatif terhadap return).")
-            console.print(f"[bold yellow]{peringatan}[/bold yellow]") if HAS_RICH else print(peringatan)
+    if verbose and result is not None:
+        sig = _fmt_last_signal(result)
+        ringkasan = (f"\n>> MACD {result['fast']}/{result['slow']}/{result['signal']}  "
+                     f"Trades={result['n_trades']}  WinRate={result['win_rate']:.1f}%  "
+                     f"Return={result['total_return_pct']:.2f}%  MaxDD={result['max_dd_pct']:.2f}%  "
+                     f"Calmar={result['calmar']:.2f}  SinyalTerakhir={sig}")
+        console.print(f"[bold green]{ringkasan}[/bold green]") if HAS_RICH else print(ringkasan)
 
     detail = None
     if collect_detail:
-        detail = {
-            "total_candle": total_candle,
-            "top10_return": results[:10],
-            "top10_calmar": results_calmar[:10],
-        }
+        detail = {"total_candle": total_candle}
 
-    return path, (qualified[0] if qualified else None), bh_return, detail
+    return path, result, bh_return, detail
 
 
 def _md_table(headers, rows):
@@ -465,174 +427,93 @@ def _fmt_last_signal_md(r):
     return f'{dot} **{days_label}** ({sig_type}, {status})'
 
 
-def _calmar_tier_symbol(calmar, markdown=False):
-    """
-    Tentukan simbol tier berdasarkan nilai calmar absolut (bukan rank relatif),
-    supaya hasil konsisten terlepas dari berapa banyak aset yang diuji bersamaan.
-    calmar >= 50 -> ✅, 10 <= calmar < 50 -> tanda peringatan, calmar < 10 -> ⛔.
-
-    Untuk tier peringatan menengah, dua varian dipakai tergantung target output:
-    - markdown=True  -> ⚠️ (U+26A0 + U+FE0F, "emoji presentation") -- tampil
-      sebagai segitiga kuning penuh warna di renderer Markdown (GitHub, editor, dst).
-    - markdown=False -> ⚠  (U+26A0 saja, "text presentation") -- 1 code point,
-      lebar tampilan konsisten di terminal, sehingga tidak merusak alignment
-      border tabel `rich`. Versi dengan selector adalah 2 code point dan lebar
-      tampilannya tidak konsisten di berbagai terminal (termasuk Termux).
-    """
-    if calmar >= 50:
-        return "✅"
-    elif calmar >= 10:
-        return "⚠️" if markdown else "⚠"
-    else:
-        return "⛔"
-
-
-def _compute_calmar_ranks(summary, markdown=False):
-    """
-    Hitung rank calmar (1 = terbaik) lintas semua aset yang punya best result,
-    diurutkan dari calmar tertinggi ke terendah. Tier symbol dihitung dari nilai
-    calmar absolut (lihat _calmar_tier_symbol), bukan posisi rank.
-    markdown=True dipakai saat hasil ini dirender ke README.md/Markdown;
-    markdown=False (default) dipakai untuk tampilan terminal (rich/plain-text).
-    Return dict {path: (rank, total, symbol)}.
-    """
-    scored = [(path, best['calmar']) for path, best, bh, detail in summary if best is not None]
-    scored.sort(key=lambda x: x[1], reverse=True)
-    total = len(scored)
-    ranks = {}
-    for i, (path, calmar) in enumerate(scored, start=1):
-        ranks[path] = (i, total, _calmar_tier_symbol(calmar, markdown=markdown))
-    return ranks
-
-
 def generate_markdown_section(summary_with_detail, bullish, bearish, unknown):
     """
-    Bangun konten markdown lengkap (tanpa header/footer README) dari hasil backtest.
-    summary_with_detail: list of (path, best, bh, detail) -- urutan asli, dipakai untuk Detail per Aset.
-    bullish, bearish, unknown: hasil split_and_sort_by_signal, dipakai untuk dua tabel ringkasan terpisah.
+    Bangun konten markdown (tanpa header/footer README) dari hasil backtest MACD.
+    summary_with_detail: list of (path, result, bh, detail) -- tidak dipakai untuk
+    detail per-aset lagi (dihapus), hanya diteruskan untuk kompatibilitas caller.
+    bullish, bearish, unknown: hasil split_and_sort_by_signal -- masing-masing
+    dirender sebagai satu tabel ringkas, diurutkan dari sinyal paling baru.
     """
     lines = []
     lines.append(f"**Fee yang digunakan:** {FEE_PCT}% per sisi ({2*FEE_PCT}% round-trip)")
-    lines.append(f"**Grid EMA yang diuji:** fast {FAST_CANDIDATES} x slow {SLOW_CANDIDATES}")
+    lines.append(f"**Parameter MACD (tetap, semua pair):** `{MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}`")
     lines.append("")
-    lines.append("**Sinyal Terakhir** menunjukkan sudah berapa hari sejak crossover EMA terakhir "
-                 "terjadi pada kombinasi tersebut, dihitung sampai candle paling akhir di data "
+    lines.append("**Sinyal Terakhir** menunjukkan sudah berapa hari sejak crossover MACD terakhir "
+                 "terjadi, dihitung sampai candle paling akhir di data "
                  "(BUY = masih dalam posisi terbuka, SELL = sudah keluar dan menunggu sinyal beli berikutnya). "
                  "Kedua tabel di bawah diurutkan dari sinyal paling baru ke paling lama.")
     lines.append("")
 
-    headers = ["Pair", "Timeframe", "Total Candle", "EMA Terbaik",
-               "Return", "Max DD", "Buy & Hold", "Calmar Rank", "Sinyal Terakhir"]
-
-    calmar_ranks = _compute_calmar_ranks(summary_with_detail, markdown=True)
+    headers = ["Pair", "Timeframe", "Total Candle",
+               "Return", "Max DD", "Buy & Hold", "Trades", "Sinyal Terakhir"]
 
     def _build_summary_table(group):
         table_rows = []
-        for path, best, bh, detail in group:
+        for path, result, bh, detail in group:
             pair, tf_label = parse_filename(path)
             candle_count = detail["total_candle"] if detail else "-"
-            if best is None:
-                table_rows.append([pair, tf_label, candle_count, "-", "-", "-", _fmt_pct(bh), "-", "-"])
+            if result is None:
+                table_rows.append([pair, tf_label, candle_count, "-", "-", _fmt_pct(bh), "-", "-"])
             else:
-                rank_info = calmar_ranks.get(path)
-                if rank_info:
-                    rank, total, symbol = rank_info
-                    rank_label = f"{symbol} #{rank}"
-                else:
-                    rank_label = "-"
-                sig_label = _fmt_last_signal_md(best)
+                sig_label = _fmt_last_signal_md(result)
                 table_rows.append([
                     f"**{pair}**", tf_label, candle_count,
-                    f"`{best['fast']}/{best['slow']}`",
-                    _fmt_pct(best['total_return_pct']),
-                    f"{best['max_dd_pct']:.2f}%",
+                    _fmt_pct(result['total_return_pct']),
+                    f"{result['max_dd_pct']:.2f}%",
                     _fmt_pct(bh),
-                    rank_label,
+                    str(result['n_trades']),
                     sig_label,
                 ])
         return _md_table(headers, table_rows)
 
-    # --- Dua tabel ringkasan terpisah, masing-masing terurut sinyal terbaru ---
     if bullish:
-        lines.append("## Ringkasan Hasil -- Bullish (Sinyal BUY)")
+        lines.append("## Result -- Bullish (Sinyal BUY)")
         lines.append("")
         lines.append(_build_summary_table(bullish))
         lines.append("")
 
     if bearish:
-        lines.append("## Ringkasan Hasil -- Bearish (Sinyal SELL)")
+        lines.append("## Result -- Bearish (Sinyal SELL)")
         lines.append("")
         lines.append(_build_summary_table(bearish))
         lines.append("")
 
     if unknown:
-        lines.append("## Ringkasan Hasil -- Data Tidak Cukup / Tanpa Sinyal")
+        lines.append("## Result -- Data Tidak Cukup / Tanpa Sinyal")
         lines.append("")
         lines.append(_build_summary_table(unknown))
-        lines.append("")
-
-    # --- Detail per file (urutan asli sesuai file yang diuji) ---
-    lines.append("## Detail per Aset")
-    lines.append("")
-
-    for path, best, bh, detail in summary_with_detail:
-        pair, tf_label = parse_filename(path)
-        lines.append(f"### {pair} ({tf_label})")
-        lines.append("")
-
-        if best is None or detail is None:
-            lines.append("_Data tidak cukup untuk pengujian ini._")
-            lines.append("")
-            continue
-
-        candle_count = detail["total_candle"]
-
-        lines.append(f"- **File sumber:** `{path}`")
-        lines.append(f"- **Total candle:** {candle_count}")
-        lines.append(f"- **Buy & Hold:** {_fmt_pct(bh)}")
-        lines.append(f"- **Rekomendasi (calmar tertinggi, trades >= {MIN_TRADES}):** EMA `{best['fast']}/{best['slow']}` "
-                      f"→ Return {_fmt_pct(best['total_return_pct'])}, MaxDD {best['max_dd_pct']:.2f}%")
-        lines.append(f"- **Sinyal terakhir pada kombinasi ini:** {_fmt_last_signal_md(best)}")
-        lines.append("")
-
-        lines.append("**Top 10 berdasarkan Total Return**")
-        lines.append("")
-        headers_detail = ["Fast", "Slow", "Trades", "Win Rate", "Return", "Max DD", "Calmar", "Sinyal Terakhir"]
-        rows_return = [
-            [r['fast'], r['slow'], r['n_trades'], f"{r['win_rate']:.1f}%",
-             _fmt_pct(r['total_return_pct']), f"{r['max_dd_pct']:.2f}%", f"{r['calmar']:.2f}",
-             _fmt_last_signal_md(r)]
-            for r in detail["top10_return"]
-        ]
-        lines.append(_md_table(headers_detail, rows_return))
-        lines.append("")
-
-        lines.append("**Top 10 berdasarkan Calmar (risk-adjusted)**")
-        lines.append("")
-        rows_calmar = [
-            [r['fast'], r['slow'], r['n_trades'], f"{r['win_rate']:.1f}%",
-             _fmt_pct(r['total_return_pct']), f"{r['max_dd_pct']:.2f}%", f"{r['calmar']:.2f}",
-             _fmt_last_signal_md(r)]
-            for r in detail["top10_calmar"]
-        ]
-        lines.append(_md_table(headers_detail, rows_calmar))
         lines.append("")
 
     return "\n".join(lines)
 
 
-README_INTRO = f"""# Hasil Pengujian EMA Crossover
+README_INTRO = f"""# Hasil Pengujian MACD Crossover ({MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL})
 
-Repositori ini berisi hasil pengujian sistematis strategi *dual EMA crossover*
-(beli saat EMA cepat memotong ke atas EMA lambat, jual saat memotong ke bawah)
-pada berbagai aset kripto, timeframe daily, dengan asumsi fee trading 0,15% per sisi.
+Repositori ini berisi hasil pengujian strategi *MACD crossover* (beli saat garis
+MACD memotong ke atas garis sinyal, jual saat memotong ke bawah) pada berbagai
+aset kripto, timeframe daily, dengan asumsi fee trading 0,15% per sisi.
 
-Pengujian dilakukan dengan grid search murni (mencoba banyak kombinasi EMA fast/slow),
-mengambil kombinasi dengan calmar tertinggi (risk-adjusted return) sebagai representasi
-tiap aset, dengan syarat minimum {MIN_TRADES} trade closed agar tidak overfitting pada
-sampel kecil. Hasil ini bersifat in-sample (belum divalidasi walk-forward out-of-sample)
-kecuali disebutkan lain, sehingga sebaiknya tidak dijadikan dasar tunggal untuk keputusan
-trading nyata.
+Parameter `{MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}` bersifat **tetap untuk semua pair**
+(tidak di-grid-search ulang per aset). Parameter ini dipilih lewat pengujian
+yang menguji generalisasi satu setup tunggal lintas 20 pair, tervalidasi melalui
+in-sample/out-of-sample split dan walk-forward analysis (expanding window, 5 fold,
+tanpa refitting per pair). Setup ini unggul di seluruh metrik walk-forward genuine
+dibanding kandidat lain yang diuji, termasuk default klasik 12/26/9.
+
+Karena sudah melalui OOS split dan walk-forward, hasil di bawah ini bukan lagi
+murni in-sample -- namun tetap bukan jaminan performa live. Walk-forward genuine
+menunjukkan hanya ~52% fold individual yang positif dan ~65% pair yang signifikan
+secara statistik (bootstrap p<0,05); artinya edge ada tapi tidak seragam di semua
+pair maupun di semua periode. Gunakan sebagai salah satu input keputusan, bukan
+sinyal mutlak, dan pertimbangkan manajemen risiko (position sizing, bukan all-in)
+terutama pada pair dengan riwayat maximum drawdown dalam.
+
+Data mentah dan script pengujian tersedia untuk diverifikasi/diuji ulang secara
+mandiri di [github.com/Rovikin/web/tree/main/chart](https://github.com/Rovikin/web/tree/main/chart).
+
+Tidak ada lagi filter kelayakan (calmar minimum / jumlah trade minimum) -- seluruh
+pair yang berhasil diuji ditampilkan apa adanya, termasuk yang trade-nya sedikit.
 
 Data & hasil di bawah ini dihasilkan otomatis oleh `backtest.py` dan diperbarui
 setiap kali script dijalankan dengan flag `--detail`.
@@ -641,13 +522,15 @@ setiap kali script dijalankan dengan flag `--detail`.
 
 """
 
-README_OUTRO = """
+README_OUTRO = f"""
 
 ---
 
-_Dihasilkan otomatis oleh `backtest.py`. Metodologi: dual EMA crossover, long-only,
-fee dihitung di setiap entry & exit, tanpa slippage. Hasil in-sample murni --
-lihat catatan walk-forward terpisah untuk validasi out-of-sample._
+_Dihasilkan otomatis oleh `backtest.py`. Metodologi: MACD crossover ({MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}),
+parameter tetap untuk semua pair, long-only, fee dihitung di setiap entry & exit,
+tanpa slippage. Divalidasi IS/OOS split + walk-forward expanding window. Data dan
+script pengujian: [github.com/Rovikin/web/tree/main/chart](https://github.com/Rovikin/web/tree/main/chart) --
+silakan uji ulang secara mandiri._
 """
 
 README_START_MARKER = "<!-- BACKTEST_RESULTS_START -->"
@@ -681,32 +564,6 @@ def write_readme(summary_with_detail, bullish, bearish, unknown, readme_path="RE
         f.write(new_content)
 
     return readme_path
-
-
-def _print_rich_table(title, rows):
-    """Cetak satu tabel rich untuk daftar hasil backtest (dipakai mode --detail)."""
-    table = Table(title=title, box=box.SIMPLE_HEAVY, show_lines=False)
-    table.add_column("Fast", justify="right", style="cyan")
-    table.add_column("Slow", justify="right", style="cyan")
-    table.add_column("Trades", justify="right")
-    table.add_column("WinRate", justify="right")
-    table.add_column("Return%", justify="right")
-    table.add_column("MaxDD%", justify="right")
-    table.add_column("Calmar", justify="right")
-    table.add_column("Sinyal Terakhir", justify="right")
-
-    for r in rows:
-        return_style = "green" if r['total_return_pct'] > 0 else "red"
-        sig = _fmt_last_signal_rich(r)
-        table.add_row(
-            str(r['fast']), str(r['slow']), str(r['n_trades']),
-            f"{r['win_rate']:.1f}%",
-            f"[{return_style}]{r['total_return_pct']:.2f}%[/{return_style}]",
-            f"[red]{r['max_dd_pct']:.2f}%[/red]",
-            f"{r['calmar']:.2f}",
-            sig,
-        )
-    console.print(table)
 
 
 def split_and_sort_by_signal(summary):
@@ -777,56 +634,30 @@ def main():
 
     bullish, bearish, unknown = split_and_sort_by_signal(summary)
 
-    # PENTING: rank calmar HARUS dihitung dari seluruh populasi file .csv yang
-    # ada di direktori (mis. 20 aset), bukan hanya dari subset yang kebetulan
-    # diberikan lewat argumen (paths). Sebelumnya rank dihitung dari `summary`
-    # (= hanya subset paths), sehingga menjalankan "python backtest.py file1
-    # file2 ..." menghasilkan rank #1..#N yang salah -- relatif terhadap subset
-    # kecil itu, bukan terhadap seluruh populasi aset yang biasa dipantau.
-    # Contoh nyata: SOLUSDT tampil #1 saat dijalankan dengan 4 file saja,
-    # padahal rank sebenarnya di antara 20 aset adalah #2.
-    all_paths = find_csv_files()
-    if set(all_paths) != set(paths):
-        rank_summary = []
-        for p in all_paths:
-            if p in [s[0] for s in summary]:
-                # sudah dihitung barusan, pakai ulang hasilnya (hindari hitung dobel)
-                rank_summary.append(next(s for s in summary if s[0] == p))
-            else:
-                rank_summary.append(run_one_file(p, verbose=False, collect_detail=False, use_cache=use_cache))
-    else:
-        rank_summary = summary
-
-    calmar_ranks = _compute_calmar_ranks(rank_summary)
-
     def _build_rich_table(title, group, border_style):
         table = Table(title=title, box=box.ROUNDED, show_lines=True, title_style="bold magenta", border_style=border_style)
         table.add_column("Pair", style="bold cyan", no_wrap=True)
         table.add_column("Timeframe", style="cyan")
-        table.add_column("EMA", justify="center", style="yellow")
         table.add_column("Return%", justify="right")
         table.add_column("MaxDD%", justify="right", style="red")
         table.add_column("B&H%", justify="right")
-        table.add_column("Calmar Rank", justify="center")
+        table.add_column("Trades", justify="right")
         table.add_column("Sinyal Terakhir", justify="right")
 
         for path, best, bh, detail in group:
             pair, tf_label = parse_filename(path)
 
             if best is None:
-                row = [pair, tf_label, "--/--", "-", "-", f"{bh:.2f}%", "-", "-"]
+                row = [pair, tf_label, "-", "-", f"{bh:.2f}%", "-", "-"]
                 table.add_row(*row)
                 continue
 
             return_style = "bold green" if best['total_return_pct'] > 0 else "bold red"
-            rank_info = calmar_ranks.get(path)
-            rank_label = f"{rank_info[2]} #{rank_info[0]}" if rank_info else "-"
             row = [pair, tf_label,
-                f"{best['fast']}/{best['slow']}",
                 f"[{return_style}]{best['total_return_pct']:.2f}%[/{return_style}]",
                 f"{best['max_dd_pct']:.2f}%",
                 f"{bh:.2f}%",
-                rank_label,
+                str(best['n_trades']),
                 _fmt_last_signal_rich(best),
             ]
             table.add_row(*row)
@@ -840,11 +671,9 @@ def main():
                 print(f"{pair} Timeframe {tf_label}: (data tidak cukup untuk uji)")
             else:
                 sig = _fmt_last_signal(best)
-                rank_info = calmar_ranks.get(path)
-                rank_label = f"{rank_info[2]} #{rank_info[0]}" if rank_info else "-"
-                print(f"{pair} Timeframe {tf_label}: EMA {best['fast']}/{best['slow']}  "
-                      f"| Return {best['total_return_pct']:.2f}%  | MaxDD {best['max_dd_pct']:.2f}%  | Calmar Rank {rank_label}"
-                      f"  | Sinyal Terakhir {sig}")
+                print(f"{pair} Timeframe {tf_label}: "
+                      f"Return {best['total_return_pct']:.2f}%  | MaxDD {best['max_dd_pct']:.2f}%  "
+                      f"| Trades {best['n_trades']}  | Sinyal Terakhir {sig}")
 
     if HAS_RICH:
         console.print()
