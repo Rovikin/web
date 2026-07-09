@@ -496,7 +496,7 @@ aset kripto, timeframe daily, dengan asumsi fee trading 0,15% per sisi.
 
 Parameter `{MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}` bersifat **tetap untuk semua pair**
 (tidak di-grid-search ulang per aset). Parameter ini dipilih lewat pengujian
-yang menguji generalisasi satu setup tunggal lintas 20 pair, tervalidasi melalui
+yang menguji generalisasi satu setup tunggal lintas 16 pair, tervalidasi melalui
 in-sample/out-of-sample split dan walk-forward analysis (expanding window, 5 fold,
 tanpa refitting per pair). Setup ini unggul di seluruh metrik walk-forward genuine
 dibanding kandidat lain yang diuji, termasuk default klasik 12/26/9.
