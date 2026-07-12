@@ -10,10 +10,10 @@ Cara pakai:
     python3 backtest.py <file_csv>                # satu file, tabel CLI
     python3 backtest.py <file_csv_1> <file_csv_2> --detail # banyak file spesifik + index.html
 
-Hanya pair dengan SINYAL TERBARU (terjadi dalam 1 hari terakhir) yang
-ditampilkan -- baik di tabel CLI maupun di index.html. Pair yang datanya
-belum cukup untuk menghasilkan sinyal, atau sinyal terakhirnya lebih lama
-dari 1 hari, tidak ditampilkan sama sekali di kedua mode.
+Hanya pair dengan SINYAL TERBARU (terjadi HARI INI) yang ditampilkan --
+baik di tabel CLI maupun di index.html. Pair yang datanya belum cukup
+untuk menghasilkan sinyal, atau sinyal terakhirnya terjadi kemarin atau
+lebih lama, tidak ditampilkan sama sekali di kedua mode.
 
 Konteks: Binance Spot, timeframe 1D, long-only (beli lalu jual -- tidak ada
 short). Sinyal ditampilkan sebagai BUY (crossover naik, entry/holding) atau
@@ -68,7 +68,17 @@ MACD_SLOW = 26
 MACD_SIGNAL = 12
 
 # Hanya sinyal yang terjadi dalam jendela ini (hari) yang ditampilkan.
-SIGNAL_FRESHNESS_DAYS = 1
+# 0 = hanya sinyal HARI INI; sinyal 1 hari lalu ke atas dianggap kadaluarsa.
+SIGNAL_FRESHNESS_DAYS = 0
+
+
+def _freshness_label():
+    """Teks deskriptif untuk jendela freshness saat ini, dipakai di semua
+    tempat (CLI & HTML) supaya kalimatnya selalu benar secara bahasa,
+    baik untuk kasus 0 hari ('hari ini') maupun N hari ('N hari terakhir')."""
+    if SIGNAL_FRESHNESS_DAYS <= 0:
+        return "hari ini"
+    return f"{SIGNAL_FRESHNESS_DAYS} hari terakhir"
 
 # Direktori cache -- menyimpan hasil backtest per file CSV agar tidak
 # dihitung ulang jika file sumber belum berubah.
@@ -245,14 +255,18 @@ def _fmt_last_signal_rich(r):
 
 
 def is_signal_fresh(result):
-    """True jika result punya sinyal dan sinyal itu terjadi dalam
-    SIGNAL_FRESHNESS_DAYS hari terakhir (hari ini s/d 1 hari lalu)."""
+    """True jika result punya sinyal dan sinyal itu, setelah dibulatkan
+    dengan cara yang sama seperti label tampilan (_days_label), termasuk
+    dalam SIGNAL_FRESHNESS_DAYS hari (default: hanya 'Hari ini', yaitu
+    round(days) <= 0). Memakai round() -- bukan raw float -- supaya pair
+    yang labelnya tertulis 'Hari ini' tidak pernah tersaring keluar oleh
+    filter ini, dan sebaliknya."""
     if result is None:
         return False
     days = result.get('days_since_last_signal')
     if days is None:
         return False
-    return days <= SIGNAL_FRESHNESS_DAYS
+    return round(days) <= SIGNAL_FRESHNESS_DAYS
 
 
 def _file_fingerprint(path):
@@ -437,19 +451,19 @@ def generate_html_section(bullish, bearish):
     if bullish:
         lines.append('<div class="section-label buy">')
         lines.append('<span class="dot"></span><span class="label">Bullish</span>')
-        lines.append(f'<span class="count">— sinyal BUY dalam {SIGNAL_FRESHNESS_DAYS} hari terakhir ({len(bullish)} pair)</span>')
+        lines.append(f'<span class="count">— sinyal BUY {_freshness_label()} ({len(bullish)} pair)</span>')
         lines.append('</div>')
         lines.append(_build_summary_table_html(bullish))
 
     if bearish:
         lines.append('<div class="section-label sell">')
         lines.append('<span class="dot"></span><span class="label">Bearish</span>')
-        lines.append(f'<span class="count">— sinyal SELL dalam {SIGNAL_FRESHNESS_DAYS} hari terakhir ({len(bearish)} pair)</span>')
+        lines.append(f'<span class="count">— sinyal SELL {_freshness_label()} ({len(bearish)} pair)</span>')
         lines.append('</div>')
         lines.append(_build_summary_table_html(bearish))
 
     if not bullish and not bearish:
-        lines.append(f'<p class="empty-note">Tidak ada pair dengan sinyal dalam {SIGNAL_FRESHNESS_DAYS} hari terakhir.</p>')
+        lines.append(f'<p class="empty-note">Tidak ada pair dengan sinyal {_freshness_label()}.</p>')
 
     return "\n".join(lines)
 
@@ -612,7 +626,7 @@ PAGE_INTRO = f"""
   </div>
   <div class="params">
     <div><strong>Fee:</strong> {FEE_PCT}%/sisi &nbsp;\u00b7&nbsp; <strong>Timeframe:</strong> daily &nbsp;\u00b7&nbsp; <strong>Mode:</strong> Spot, long-only</div>
-    <div class="src">Script &amp; data: <a href="https://github.com/Rovikin/web/tree/main/chart">github.com/Rovikin/web/chart</a></div>
+    <div class="src">Script: <a href="https://github.com/Rovikin/web/tree/main/signal/spot">github.com/Rovikin/web/signal/spot</a></div>
   </div>
 </div>
 """
@@ -628,7 +642,7 @@ PAGE_OUTRO = f"""
 
   <p>Data lokal disimpan dalam mode <em>pruned</em>: hanya 730 candle terakhir per pair yang dipertahankan
   (jendela bergulir ±2 tahun), dan pair yang sudah tidak masuk top-100 volume otomatis dibuang dari lokal.
-  Hanya pair dengan sinyal dalam {SIGNAL_FRESHNESS_DAYS} hari terakhir yang ditampilkan di halaman ini.</p>
+  Hanya pair dengan sinyal {_freshness_label()} yang ditampilkan di halaman ini.</p>
 
   <div class="field-note">
     <span class="tag">[!]</span> Karena sudah melalui OOS split dan walk-forward, hasil di atas bukan lagi
@@ -640,9 +654,10 @@ PAGE_OUTRO = f"""
 <footer>
 Dihasilkan otomatis oleh <code>backtest.py</code>. Metodologi: MACD crossover ({MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}),
 parameter tetap untuk semua pair, spot long-only, fee dihitung di setiap entry &amp; exit,
-tanpa slippage. Divalidasi IS/OOS split + walk-forward expanding window. Data dan
-script pengujian: <a href="https://github.com/Rovikin/web/tree/main/chart">github.com/Rovikin/web/tree/main/chart</a>
-— silakan uji ulang secara mandiri.
+tanpa slippage. Divalidasi IS/OOS split + walk-forward expanding window. Script
+pengambilan data (<code>fetch.py</code>) dan backtest (<code>backtest.py</code>):
+<a href="https://github.com/Rovikin/web/tree/main/signal/spot">github.com/Rovikin/web/tree/main/signal/spot</a>
+— silakan jalankan sendiri untuk mengunduh data terbaru dari Binance dan uji ulang secara mandiri.
 </footer>
 """
 
@@ -651,6 +666,18 @@ HTML_END_MARKER = "<!-- BACKTEST_RESULTS_END -->"
 
 PAGE_TITLE = f"Hasil Backtest MACD ({MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL})"
 
+# CATATAN AREA MARKER:
+# Marker membungkus PAGE_INTRO + hasil (body) + PAGE_OUTRO -- SEMUA konten
+# yang murni dihasilkan dari kode Python (bukan pernah diedit manual oleh
+# user), termasuk URL github, angka parameter MACD, dan teks metodologi.
+# Ini disengaja: kalau salah satu dari PAGE_INTRO/PAGE_OUTRO diubah di kode
+# (mis. path repo pindah dari chart/ ke signal/spot/), perubahan itu HARUS
+# ikut ter-update setiap kali --detail dijalankan, bukan "terkunci" ke
+# versi lama yang sudah ter-tulis di index.html sebelumnya.
+#
+# Hanya <style>{PAGE_CSS}</style> yang SENGAJA diletakkan DI LUAR marker,
+# karena itu satu-satunya bagian yang realistis diedit manual oleh user
+# (mis. mengganti warna aksen) dan ingin dipertahankan lintas run.
 PAGE_TEMPLATE = f"""<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -664,11 +691,9 @@ PAGE_TEMPLATE = f"""<!DOCTYPE html>
 </head>
 <body>
 <div class="container">
-{PAGE_INTRO}
 {HTML_START_MARKER}
 __BODY__
 {HTML_END_MARKER}
-{PAGE_OUTRO}
 </div>
 </body>
 </html>
@@ -678,12 +703,18 @@ __BODY__
 def write_html_report(bullish, bearish, output_path="index.html"):
     """
     Tulis/perbarui index.html:
-    - Jika belum ada -> buat halaman lengkap (head + intro + hasil + footer), dibungkus marker.
-    - Jika sudah ada dan markernya ditemukan -> ganti HANYA konten di antara marker,
-      pertahankan bagian lain yang mungkin sudah diedit manual (CSS, intro, dsb).
+    - Jika belum ada -> buat halaman lengkap (head/CSS + [intro+hasil+footer]
+      dibungkus marker).
+    - Jika sudah ada dan markernya ditemukan -> ganti konten di antara marker
+      (intro + hasil + footer) sepenuhnya dengan versi terbaru dari kode --
+      termasuk PAGE_INTRO dan PAGE_OUTRO, supaya link/teks yang berasal dari
+      kode (mis. path repo, angka parameter) tidak pernah "terkunci" ke versi
+      lama. Hanya <style> di luar marker yang dipertahankan lintas run,
+      karena itu satu-satunya bagian yang realistis diedit manual oleh user.
     """
-    body = generate_html_section(bullish, bearish)
-    wrapped_body = f"{HTML_START_MARKER}\n{body}\n{HTML_END_MARKER}"
+    results_body = generate_html_section(bullish, bearish)
+    full_body = f"{PAGE_INTRO}\n{results_body}\n{PAGE_OUTRO}"
+    wrapped_body = f"{HTML_START_MARKER}\n{full_body}\n{HTML_END_MARKER}"
 
     if os.path.exists(output_path):
         with open(output_path, "r", encoding="utf-8") as f:
@@ -694,9 +725,9 @@ def write_html_report(bullish, bearish, output_path="index.html"):
             new_content = pre + wrapped_body + post
         else:
             # Belum ada marker -- anggap file lama/manual, buat ulang dari template
-            new_content = PAGE_TEMPLATE.replace("__BODY__", body)
+            new_content = PAGE_TEMPLATE.replace("__BODY__", full_body)
     else:
-        new_content = PAGE_TEMPLATE.replace("__BODY__", body)
+        new_content = PAGE_TEMPLATE.replace("__BODY__", full_body)
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(new_content)
@@ -760,7 +791,7 @@ def main():
             print(f"{pair} Timeframe {tf_label}: Sinyal Terakhir {sig}")
 
     if not bullish and not bearish:
-        msg = f"Tidak ada pair dengan sinyal dalam {SIGNAL_FRESHNESS_DAYS} hari terakhir."
+        msg = f"Tidak ada pair dengan sinyal {_freshness_label()}."
         console.print(f"[yellow]{msg}[/yellow]") if HAS_RICH else print(msg)
         if detail_mode:
             html_path = write_html_report(bullish, bearish)

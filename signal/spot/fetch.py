@@ -43,6 +43,7 @@ import threading
 import time
 import urllib.request
 import urllib.error
+import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
@@ -85,9 +86,36 @@ def die(msg):
 # Daftar top 100 pair USDT spot berdasarkan volume 24 jam
 # ---------------------------------------------------------------------------
 
+# Base asset yang merupakan stablecoin lain (dipatok ~1:1 ke USD) --
+# pair semacam USDCUSDT, FDUSDUSDT, BUSDUSDT hanya mencerminkan peg/depeg
+# antar-stablecoin, bukan momentum harga aset yang relevan untuk screening
+# MACD. Selalu dikecualikan dari top-100 volume, terlepas dari volumenya
+# (stablecoin sering punya volume sangat tinggi karena dipakai sebagai
+# pasangan arbitrase/parkir dana, sehingga bisa mendominasi slot top-100
+# kalau tidak difilter).
+STABLECOIN_BASES = {
+    "USDC", "FDUSD", "BUSD", "TUSD", "USD1", "DAI", "USDP", "PYUSD",
+    "EURI", "AEUR", "XUSD", "USDE", "RLUSD", "GUSD", "FRAX", "USDD",
+}
+
+
+def _is_stablecoin_pair(symbol):
+    """True jika base asset dari symbol (bagian sebelum 'USDT') adalah
+    stablecoin lain, mis. 'USDCUSDT' -> base 'USDC' -> True."""
+    base = symbol[:-len("USDT")] if symbol.endswith("USDT") else symbol
+    return base.upper() in STABLECOIN_BASES
+
+
 def fetch_top_pairs(n=TOP_N_PAIRS):
-    """Ambil semua ticker 24h dari Binance Spot, filter *USDT, urutkan
-    descending berdasarkan quoteVolume, kembalikan n symbol teratas."""
+    """Ambil semua ticker 24h dari Binance Spot, filter *USDT (tanpa pair
+    stablecoin-vs-stablecoin), urutkan descending berdasarkan quoteVolume,
+    kembalikan n symbol teratas.
+
+    CATATAN: simbol non-ASCII (mis. token nama Mandarin seperti
+    '\u5e01\u5b89\u4eba\u751fUSDT' / BinanceLife) TIDAK disaring keluar --
+    ini pair spot resmi yang valid di Binance walau simbolnya memakai
+    karakter Hanzi. Penanganan encoding-nya ada di spot_fetch_batch()
+    lewat urllib.parse.quote(), bukan dengan melewati pair ini."""
     req = urllib.request.Request(SPOT_TICKER_URL, headers={"User-Agent": "Mozilla/5.0"})
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
@@ -96,6 +124,12 @@ def fetch_top_pairs(n=TOP_N_PAIRS):
         die(f"Gagal mengambil daftar ticker dari Binance Spot: {e}")
 
     usdt_pairs = [d for d in data if d.get("symbol", "").endswith("USDT")]
+
+    excluded = [d["symbol"] for d in usdt_pairs if _is_stablecoin_pair(d["symbol"])]
+    if excluded:
+        log(f"Dikecualikan (pair stablecoin-vs-stablecoin): {', '.join(sorted(excluded))}")
+    usdt_pairs = [d for d in usdt_pairs if not _is_stablecoin_pair(d["symbol"])]
+
     usdt_pairs.sort(key=lambda d: float(d.get("quoteVolume", 0)), reverse=True)
     return [d["symbol"] for d in usdt_pairs[:n]]
 
@@ -112,7 +146,12 @@ def next_candle_due_at(last_open_time_ms):
 
 
 def spot_fetch_batch(symbol, start_time_ms):
-    url = f"{SPOT_BASE_URL}?symbol={symbol}&interval={TIMEFRAME}&limit={SPOT_LIMIT}&startTime={start_time_ms}"
+    # quote() sebagai jaring pengaman kedua -- fetch_top_pairs sudah
+    # menyaring simbol non-ASCII, tapi tetap encode di sini supaya fungsi
+    # ini aman dipanggil langsung dengan simbol apa pun tanpa error 'ascii'
+    # codec can't encode.
+    safe_symbol = urllib.parse.quote(symbol, safe="")
+    url = f"{SPOT_BASE_URL}?symbol={safe_symbol}&interval={TIMEFRAME}&limit={SPOT_LIMIT}&startTime={start_time_ms}"
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
@@ -282,6 +321,18 @@ def sync_pair(pair, output_file):
             return None
         rows = klines_to_rows(klines)
         rows = [r for r in rows if r["is_closed"]]
+
+        if not rows:
+            # Binance API merespons normal tapi tanpa candle sama sekali --
+            # ini BUKAN kegagalan jaringan/HTTP, melainkan tanda pair sudah
+            # tidak tradable (mis. sudah didelist, seperti BUSDUSDT) atau
+            # baru listing dan belum punya candle closed. Jangan simpan
+            # file kosong -- biarkan tidak ada file lokal untuk pair ini
+            # sampai ada data candle sungguhan pada run berikutnya.
+            log(f"  Tidak ada data candle untuk {pair} (kemungkinan sudah "
+                f"delisted/tidak tradable) -- dilewati, tidak menyimpan file kosong.")
+            return []
+
         rows = save_local_data(output_file, rows)
         log(f"  Selesai. {len(rows)} candle tersimpan di {output_file}")
         return rows
@@ -337,15 +388,20 @@ def main():
 
     ok_count = 0
     fail_count = 0
+    skipped_count = 0
 
     def _job(pair):
         output_file = output_filename(pair)
         try:
             rows = sync_pair(pair, output_file)
-            return pair, rows is not None and len(rows) > 0
+            if rows is None:
+                return pair, "fail"
+            if len(rows) == 0:
+                return pair, "skip"
+            return pair, "ok"
         except Exception as e:
             log(f"  GAGAL sync {pair}: {e}")
-            return pair, False
+            return pair, "fail"
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = {executor.submit(_job, pair): pair for pair in pairs}
