@@ -1,4 +1,6 @@
-chart/*.csv
-!chart/host/*.csv
+signal/spot/*.csv
+signal/futures/*.csv
 chart/.backtest_cache/
-**/.backtest_cache/
+
+**/.backtest_cache/*
+!**/.backtest_cache/manifest.json
