@@ -6,12 +6,12 @@ Kompatibel dengan Termux standar tanpa instalasi library tambahan.
 
 Cara pakai:
     python3 backtest.py                          # auto-scan semua .csv di folder ini, tabel CLI
-    python3 backtest.py --detail                  # auto-scan + tulis/perbarui manifest.json
+    python3 backtest.py --detail                  # auto-scan + tulis/perbarui index.html
     python3 backtest.py <file_csv>                # satu file, tabel CLI
-    python3 backtest.py <file_csv_1> <file_csv_2> --detail # banyak file spesifik + manifest.json
+    python3 backtest.py <file_csv_1> <file_csv_2> --detail # banyak file spesifik + index.html
 
 Hanya pair dengan SINYAL TERBARU (terjadi HARI INI) yang ditampilkan --
-baik di tabel CLI maupun di manifest.json. Pair yang datanya belum cukup
+baik di tabel CLI maupun di index.html. Pair yang datanya belum cukup
 untuk menghasilkan sinyal, atau sinyal terakhirnya terjadi kemarin atau
 lebih lama, tidak ditampilkan sama sekali di kedua mode.
 
@@ -19,15 +19,15 @@ Konteks: Binance Spot, timeframe 1D, long-only (beli lalu jual -- tidak ada
 short). Sinyal ditampilkan sebagai BUY (crossover naik, entry/holding) atau
 SELL (crossover turun, exit -- menunggu sinyal BUY berikutnya).
 
-CATATAN manifest.json / index.html:
-Skrip ini TIDAK LAGI menulis HTML sama sekali. Flag --detail menulis
-.backtest_cache/manifest.json -- satu file JSON teragregasi berisi seluruh
-hasil (bullish + bearish, sudah difilter freshness). index.html (statis,
-terpisah, dikelola manual) meng-fetch manifest.json ini via app.js dan
-merender tabel di browser. Pemisahan ini membuat index.html jarang berubah
-(diff git kecil & stabil), sementara manifest.json yang berubah tiap run
-adalah data terstruktur murni -- diff-nya jauh lebih rapi dibanding diff
-HTML seperti pada versi sebelumnya.
+CATATAN index.html:
+Hanya flag --detail yang menulis/memperbarui index.html di direktori kerja
+saat ini. Perintah biasa (tanpa --detail) TIDAK pernah menyentuh index.html.
+Jika index.html sudah ada, hanya bagian di antara marker
+<!-- BACKTEST_RESULTS_START --> ... <!-- BACKTEST_RESULTS_END -->
+yang diperbarui -- bagian lain (CSS, intro, footer) tetap dipertahankan
+selama marker START/END masih ada di file, meskipun diedit manual.
+Tabel di index.html disederhanakan sama seperti tabel CLI: hanya kolom
+Pair, Timeframe, dan Sinyal Terakhir.
 
 CATATAN METODE:
 Parameter MACD 16/26/12 dipakai tetap untuk semua pair, hasil dari riset
@@ -83,7 +83,7 @@ def _freshness_label():
 # Direktori cache -- menyimpan hasil backtest per file CSV agar tidak
 # dihitung ulang jika file sumber belum berubah.
 CACHE_DIR = ".backtest_cache"
-CACHE_VERSION = 2  # dinaikkan saat parameter/logic berubah -- membuat cache lama otomatis basi
+CACHE_VERSION = 2  # dinaikkan: index.html (mode --detail) diaktifkan kembali
 
 # Label timeframe untuk ditampilkan di ringkasan (dari kode interval Binance/umum)
 TIMEFRAME_LABELS = {
@@ -380,83 +380,344 @@ def split_and_sort_by_signal(summary):
     bullish.sort(key=lambda item: item[1]['days_since_last_signal'])
     bearish.sort(key=lambda item: item[1]['days_since_last_signal'])
     return bullish, bearish
+
+
 # ---------------------------------------------------------------------------
-# Manifest untuk index.html (mode --detail)
-#
-# backtest.py TIDAK LAGI menulis HTML. Sebagai gantinya, mode --detail
-# menulis satu file manifest JSON (MANIFEST_PATH) berisi seluruh hasil
-# (bullish + bearish + metadata), yang di-fetch oleh index.html/app.js di
-# sisi browser untuk dirender jadi tabel.
-#
-# Keuntungan dibanding generate-HTML langsung:
-# - index.html jadi file statis yang nyaris tidak pernah berubah -> diff
-#   git kecil dan stabil; hanya style.css/app.js yang berubah kalau desain
-#   diubah.
-# - Yang berubah tiap run backtest cuma manifest.json -- satu file JSON
-#   terstruktur, diff-nya jauh lebih rapi & predictable dibanding diff HTML.
-# - Filter "hanya sinyal segar" tetap dihitung di Python (source of truth
-#   metodologi), tapi presentasi (badge, warna, tabel) sepenuhnya jadi
-#   urusan app.js -- pemisahan data vs tampilan yang lebih bersih.
+# Generator index.html (mode --detail)
 # ---------------------------------------------------------------------------
 
-MANIFEST_PATH = os.path.join(CACHE_DIR, "manifest.json")
+def _esc(val):
+    """Escape karakter HTML dasar untuk teks yang disisipkan ke markup."""
+    return (str(val)
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;"))
 
 
-def _manifest_row(path, result, bh_return):
-    """Satu baris data mentah untuk manifest -- tanpa styling/formatting,
-    murni angka & label supaya app.js bebas menentukan tampilannya sendiri."""
-    pair, tf_label = parse_filename(path)
-    return {
-        "pair": pair,
-        "timeframe": tf_label,
-        "last_signal_type": result.get("last_signal_type"),
-        "days_since_last_signal": result.get("days_since_last_signal"),
-        "n_trades": result.get("n_trades"),
-        "win_rate": result.get("win_rate"),
-        "total_return_pct": result.get("total_return_pct"),
-        "max_dd_pct": result.get("max_dd_pct"),
-        "calmar": result.get("calmar"),
-        "bh_return": bh_return,
-    }
+def _fmt_last_signal_html(r):
+    """Format sinyal terakhir sebagai badge HTML: hijau untuk BUY (holding), oranye untuk SELL (menunggu beli)."""
+    if r.get('days_since_last_signal') is None or r.get('last_signal_type') is None:
+        return '<span class="dash">-</span>'
+    days_label = _days_label(r['days_since_last_signal'])
+    sig_type = r['last_signal_type']
+    css_class = "signal-buy" if sig_type == "BUY" else "signal-sell"
+    return (f'<span class="badge {css_class}">{sig_type}</span>'
+            f'<span class="signal-detail">{_esc(days_label)}</span>')
 
 
-def _now_iso():
-    import datetime
-    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def write_manifest(bullish, bearish, output_path=MANIFEST_PATH):
+def _build_summary_table_html(group):
     """
-    Tulis .backtest_cache/manifest.json: satu file berisi seluruh hasil
-    (bullish + bearish, sudah difilter freshness & terurut) plus metadata
-    parameter, supaya index.html cukup 1 fetch untuk merender seluruh
-    halaman. File ini SELALU ditulis ulang penuh (bukan marker-replace) --
-    karena isinya murni data terstruktur (bukan markup), ini aman dan
-    diff git-nya tetap rapi.
+    Bangun tabel HTML satu grup (bullish/bearish), disederhanakan hanya
+    Pair / Timeframe / Sinyal Terakhir -- sama seperti tabel CLI, mengikuti
+    tema visual 'Backtest Read-Out'.
     """
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    lines = ['<div class="table-wrap"><table>']
+    lines.append(
+        '<thead><tr>'
+        '<th>Pair</th>'
+        '<th class="tf-col">Timeframe</th>'
+        '<th>Sinyal Terakhir</th>'
+        '</tr></thead>'
+    )
+    lines.append('<tbody>')
 
-    payload = {
-        "generated_at": _now_iso(),
-        "params": {
-            "fast": MACD_FAST,
-            "slow": MACD_SLOW,
-            "signal": MACD_SIGNAL,
-            "fee_pct": FEE_PCT,
-            "signal_freshness_days": SIGNAL_FRESHNESS_DAYS,
-            "freshness_label": _freshness_label(),
-        },
-        "bullish": [_manifest_row(p, r, bh) for p, r, bh in bullish],
-        "bearish": [_manifest_row(p, r, bh) for p, r, bh in bearish],
-    }
+    for path, result, bh in group:
+        pair, tf_label = parse_filename(path)
+        tf_short = _esc(tf_label.replace(" Day", "D").replace(" Hour", "H")
+                         .replace(" Minute", "M").replace(" Week", "W").replace(" Month", "Mo")
+                         if tf_label != "-" else "-")
 
-    tmp_path = output_path + ".tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
-        f.write("\n")
-    os.replace(tmp_path, output_path)
+        row_class = ' class="sell-row"' if result.get('last_signal_type') == 'SELL' else ''
+
+        pair_cell = f'<td class="pair">{_esc(pair)}</td>'
+        tf_cell = f'<td class="tf-col muted-num">{tf_short}</td>'
+        sig_cell = f'<td>{_fmt_last_signal_html(result)}</td>'
+
+        lines.append(f'<tr{row_class}>{pair_cell}{tf_cell}{sig_cell}</tr>')
+
+    lines.append('</tbody></table></div>')
+    return "\n".join(lines)
+
+
+def generate_html_section(bullish, bearish):
+    """
+    Bangun konten HTML (badan hasil saja, tanpa <head>/masthead/prose/footer
+    halaman) dari pair-pair dengan sinyal segar (<= SIGNAL_FRESHNESS_DAYS
+    hari), mengikuti tema visual 'Backtest Read-Out'. bullish/bearish adalah
+    hasil split_and_sort_by_signal, sudah difilter freshness sebelumnya.
+    """
+    lines = []
+
+    if bullish:
+        lines.append('<div class="section-label buy">')
+        lines.append('<span class="dot"></span><span class="label">Bullish</span>')
+        lines.append(f'<span class="count">— sinyal BUY {_freshness_label()} ({len(bullish)} pair)</span>')
+        lines.append('</div>')
+        lines.append(_build_summary_table_html(bullish))
+
+    if bearish:
+        lines.append('<div class="section-label sell">')
+        lines.append('<span class="dot"></span><span class="label">Bearish</span>')
+        lines.append(f'<span class="count">— sinyal SELL {_freshness_label()} ({len(bearish)} pair)</span>')
+        lines.append('</div>')
+        lines.append(_build_summary_table_html(bearish))
+
+    if not bullish and not bearish:
+        lines.append(f'<p class="empty-note">Tidak ada pair dengan sinyal {_freshness_label()}.</p>')
+
+    return "\n".join(lines)
+
+
+PAGE_CSS = """
+:root {
+  --bg: #0a0b0c;
+  --bg-raised: #121416;
+  --bg-card: #16181b;
+  --line: #26292d;
+  --line-soft: #1c1e21;
+  --text: #d8d6d0;
+  --text-muted: #83817b;
+  --text-dim: #56544f;
+  --serif: 'Fraunces', Georgia, serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --buy: #5eead4;
+  --buy-dim: rgba(94, 234, 212, 0.10);
+  --sell: #d97c4a;
+  --sell-dim: rgba(217, 124, 74, 0.10);
+  --sig: #8a8f98;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 900px 500px at 50% -10%, rgba(94, 234, 212, 0.05), transparent);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container { max-width: 1180px; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+
+/* ---------- Masthead ---------- */
+.masthead {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  flex-wrap: wrap; gap: 1rem 2rem;
+  padding-bottom: 1.5rem; margin-bottom: 1.75rem;
+  border-bottom: 1px solid var(--line);
+}
+.masthead .eyebrow {
+  font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 0.6rem;
+}
+.masthead h1 {
+  font-family: var(--serif); font-weight: 500; font-optical-sizing: auto;
+  font-size: clamp(1.7rem, 4vw, 2.5rem); line-height: 1.1;
+  color: #f2f1ec; margin: 0; letter-spacing: -0.01em;
+}
+.masthead .params {
+  text-align: right; font-size: 0.78rem; color: var(--text-muted);
+  white-space: nowrap;
+}
+.masthead .params strong { color: var(--text); font-weight: 500; }
+.masthead .params .src { margin-top: 0.35rem; }
+.masthead .params a { color: var(--buy); text-decoration: none; border-bottom: 1px dotted rgba(94,234,212,0.4); }
+.masthead .params a:hover { border-bottom-style: solid; }
+
+/* ---------- Section labels ---------- */
+.section-label {
+  display: flex; align-items: center; gap: 0.7rem;
+  margin: 2.25rem 0 0.85rem;
+  font-size: 0.8rem; letter-spacing: 0.06em;
+}
+.section-label .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.section-label.buy .dot { background: var(--buy); box-shadow: 0 0 8px rgba(94,234,212,0.6); }
+.section-label.sell .dot { background: var(--sell); box-shadow: 0 0 8px rgba(217,124,74,0.5); }
+.section-label .count {
+  color: var(--text-dim); font-weight: 400;
+}
+.section-label span.label { color: #f2f1ec; font-weight: 600; text-transform: uppercase; }
+
+/* ---------- Table ---------- */
+.table-wrap {
+  border: 1px solid var(--line); border-radius: 3px;
+  background: var(--bg-raised);
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+table { width: 100%; border-collapse: collapse; min-width: 360px; }
+thead th {
+  text-align: left; font-weight: 500; font-size: 0.62rem;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-dim); padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--line); white-space: nowrap;
+  background: var(--bg-card);
+}
+tbody td {
+  padding: 0.42rem 0.6rem; border-bottom: 1px solid var(--line-soft);
+  white-space: nowrap; font-size: 0.76rem;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr { position: relative; transition: background 0.12s ease; }
+tbody tr:hover { background: rgba(255,255,255,0.02); }
+td.pair { font-family: var(--serif); font-weight: 500; color: #f2f1ec; font-size: 0.82rem; }
+.muted-num { color: var(--text-muted); }
+
+.badge {
+  display: inline-block; padding: 0.08rem 0.4rem; border-radius: 2px;
+  font-size: 0.6rem; font-weight: 600; letter-spacing: 0.04em;
+  border: 1px solid;
+}
+.signal-buy { background: var(--buy-dim); color: var(--buy); border-color: rgba(94,234,212,0.25); }
+.signal-sell { background: var(--sell-dim); color: var(--sell); border-color: rgba(217,124,74,0.25); }
+.signal-detail { color: var(--text-dim); font-size: 0.68rem; margin-left: 0.35rem; }
+.dash { color: var(--text-dim); }
+
+.empty-note { color: var(--text-muted); font-size: 0.9rem; margin-top: 1.5rem; }
+
+/* ---------- Prose / explanatory section ---------- */
+.prose-section {
+  margin-top: 3.5rem; padding-top: 2rem; border-top: 1px solid var(--line);
+}
+.prose-section .eyebrow {
+  font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 1rem;
+}
+.prose-section p {
+  font-family: var(--serif); font-size: 1.02rem; line-height: 1.7;
+  color: #b8b6b0; max-width: 68ch; margin: 0 0 1.1rem;
+}
+.prose-section code {
+  font-family: var(--mono); background: var(--bg-card); border: 1px solid var(--line);
+  border-radius: 3px; padding: 0.05rem 0.4rem; font-size: 0.82em; color: var(--buy);
+}
+.prose-section a { color: var(--buy); text-decoration: none; border-bottom: 1px dotted rgba(94,234,212,0.4); }
+.prose-section a:hover { border-bottom-style: solid; }
+
+.field-note {
+  font-family: var(--mono); font-size: 0.82rem; color: var(--text-muted);
+  background: var(--bg-card); border: 1px solid var(--line); border-left: 2px solid var(--sell);
+  padding: 1rem 1.25rem; border-radius: 0 3px 3px 0; margin: 1.5rem 0; max-width: 68ch;
+  line-height: 1.7;
+}
+.field-note .tag { color: var(--sell); font-weight: 600; }
+
+footer {
+  margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
+  color: var(--text-dim); font-size: 0.76rem; max-width: 68ch;
+}
+footer a { color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .masthead { flex-direction: column; align-items: flex-start; }
+  .masthead .params { text-align: left; }
+}
+"""
+
+PAGE_INTRO = f"""
+<div class="masthead">
+  <div>
+    <div class="eyebrow">Backtest Read-Out</div>
+    <h1>MACD Crossover {MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}</h1>
+  </div>
+  <div class="params">
+    <div><strong>Fee:</strong> {FEE_PCT}%/sisi &nbsp;\u00b7&nbsp; <strong>Timeframe:</strong> daily &nbsp;\u00b7&nbsp; <strong>Mode:</strong> Spot, long-only</div>
+    <div class="src">Script: <a href="https://github.com/Rovikin/web/tree/main/signal/spot">github.com/Rovikin/web/signal/spot</a></div>
+  </div>
+</div>
+"""
+
+PAGE_OUTRO = f"""
+<div class="prose-section">
+  <div class="eyebrow">Metodologi &amp; Batasan</div>
+
+  <p>Parameter <code>{MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}</code> bersifat tetap untuk seluruh pair di atas
+  — tidak di-<em>grid-search</em> ulang per aset. Setup ini dipilih lewat pengujian generalisasi lintas
+  20 pair, tervalidasi melalui in-sample/out-of-sample split dan walk-forward analysis (expanding window,
+  5 fold, tanpa refitting per pair).</p>
+
+  <p>Data lokal disimpan dalam mode <em>pruned</em>: hanya 730 candle terakhir per pair yang dipertahankan
+  (jendela bergulir ±2 tahun), dan pair yang sudah tidak masuk top-100 volume otomatis dibuang dari lokal.
+  Hanya pair dengan sinyal {_freshness_label()} yang ditampilkan di halaman ini.</p>
+
+  <div class="field-note">
+    <span class="tag">[!]</span> Karena sudah melalui OOS split dan walk-forward, hasil di atas bukan lagi
+    murni in-sample — namun tetap bukan jaminan performa live. Gunakan sebagai salah satu input keputusan,
+    bukan sinyal mutlak, dan pertimbangkan manajemen risiko (position sizing, bukan all-in).
+  </div>
+</div>
+
+<footer>
+Dihasilkan otomatis oleh <code>backtest.py</code>. Metodologi: MACD crossover ({MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}),
+parameter tetap untuk semua pair, spot long-only, fee dihitung di setiap entry &amp; exit,
+tanpa slippage. Divalidasi IS/OOS split + walk-forward expanding window. Script
+pengambilan data (<code>fetch.py</code>) dan backtest (<code>backtest.py</code>):
+<a href="https://github.com/Rovikin/web/tree/main/signal/spot">github.com/Rovikin/web/tree/main/signal/spot</a>
+— silakan jalankan sendiri untuk mengunduh data terbaru dari Binance dan uji ulang secara mandiri.
+</footer>
+"""
+
+HTML_START_MARKER = "<!-- BACKTEST_RESULTS_START -->"
+HTML_END_MARKER = "<!-- BACKTEST_RESULTS_END -->"
+
+PAGE_TITLE = f"Hasil Backtest MACD ({MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL})"
+
+PAGE_TEMPLATE = f"""<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{PAGE_TITLE}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>{PAGE_CSS}</style>
+</head>
+<body>
+<div class="container">
+{PAGE_INTRO}
+{HTML_START_MARKER}
+__BODY__
+{HTML_END_MARKER}
+{PAGE_OUTRO}
+</div>
+</body>
+</html>
+"""
+
+
+def write_html_report(bullish, bearish, output_path="index.html"):
+    """
+    Tulis/perbarui index.html:
+    - Jika belum ada -> buat halaman lengkap (head + intro + hasil + footer), dibungkus marker.
+    - Jika sudah ada dan markernya ditemukan -> ganti HANYA konten di antara marker,
+      pertahankan bagian lain yang mungkin sudah diedit manual (CSS, intro, dsb).
+    """
+    body = generate_html_section(bullish, bearish)
+    wrapped_body = f"{HTML_START_MARKER}\n{body}\n{HTML_END_MARKER}"
+
+    if os.path.exists(output_path):
+        with open(output_path, "r", encoding="utf-8") as f:
+            existing = f.read()
+        if HTML_START_MARKER in existing and HTML_END_MARKER in existing:
+            pre = existing.split(HTML_START_MARKER)[0]
+            post = existing.split(HTML_END_MARKER)[1]
+            new_content = pre + wrapped_body + post
+        else:
+            # Belum ada marker -- anggap file lama/manual, buat ulang dari template
+            new_content = PAGE_TEMPLATE.replace("__BODY__", body)
+    else:
+        new_content = PAGE_TEMPLATE.replace("__BODY__", body)
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(new_content)
 
     return output_path
+
 
 def main():
     args = sys.argv[1:]
@@ -517,8 +778,8 @@ def main():
         msg = f"Tidak ada pair dengan sinyal {_freshness_label()}."
         console.print(f"[yellow]{msg}[/yellow]") if HAS_RICH else print(msg)
         if detail_mode:
-            manifest_path = write_manifest(bullish, bearish)
-            note = f"\nmanifest.json diperbarui (kosong -- tidak ada sinyal segar): {os.path.abspath(manifest_path)}"
+            html_path = write_html_report(bullish, bearish)
+            note = f"\nindex.html diperbarui (kosong -- tidak ada sinyal segar): {os.path.abspath(html_path)}"
             console.print(f"[bold yellow]{note}[/bold yellow]") if HAS_RICH else print(note)
         return
 
@@ -536,8 +797,8 @@ def main():
             _print_plain_group("Sinyal Terbaru -- Bearish (SELL):", bearish)
 
     if detail_mode:
-        manifest_path = write_manifest(bullish, bearish)
-        msg = f"\nmanifest.json diperbarui: {os.path.abspath(manifest_path)}"
+        html_path = write_html_report(bullish, bearish)
+        msg = f"\nindex.html diperbarui: {os.path.abspath(html_path)}"
         console.print(f"[bold green]{msg}[/bold green]") if HAS_RICH else print(msg)
 
 

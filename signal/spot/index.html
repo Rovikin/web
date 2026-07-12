@@ -1,67 +1,823 @@
-<!DOCTYPE html>
+"""
+Backtest MACD Crossover (16/26/12) -- PURE PYTHON, tanpa numpy/pandas.
+Parameter tunggal tetap, hasil riset generalisasi lintas 20 pair (IS/OOS split
++ walk-forward analysis expanding window). Bukan grid search in-sample.
+Kompatibel dengan Termux standar tanpa instalasi library tambahan.
+
+Cara pakai:
+    python3 backtest.py                          # auto-scan semua .csv di folder ini, tabel CLI
+    python3 backtest.py --detail                  # auto-scan + tulis/perbarui index.html
+    python3 backtest.py <file_csv>                # satu file, tabel CLI
+    python3 backtest.py <file_csv_1> <file_csv_2> --detail # banyak file spesifik + index.html
+
+Hanya pair dengan SINYAL TERBARU (terjadi HARI INI) yang ditampilkan --
+baik di tabel CLI maupun di index.html. Pair yang datanya belum cukup
+untuk menghasilkan sinyal, atau sinyal terakhirnya terjadi kemarin atau
+lebih lama, tidak ditampilkan sama sekali di kedua mode.
+
+Konteks: Binance Spot, timeframe 1D, long-only (beli lalu jual -- tidak ada
+short). Sinyal ditampilkan sebagai BUY (crossover naik, entry/holding) atau
+SELL (crossover turun, exit -- menunggu sinyal BUY berikutnya).
+
+CATATAN index.html:
+Hanya flag --detail yang menulis/memperbarui index.html di direktori kerja
+saat ini. Perintah biasa (tanpa --detail) TIDAK pernah menyentuh index.html.
+Jika index.html sudah ada, hanya bagian di antara marker
+<!-- BACKTEST_RESULTS_START --> ... <!-- BACKTEST_RESULTS_END -->
+yang diperbarui -- bagian lain (CSS, intro, footer) tetap dipertahankan
+selama marker START/END masih ada di file, meskipun diedit manual.
+Tabel di index.html disederhanakan sama seperti tabel CLI: hanya kolom
+Pair, Timeframe, dan Sinyal Terakhir.
+
+CATATAN METODE:
+Parameter MACD 16/26/12 dipakai tetap untuk semua pair, hasil dari riset
+terpisah yang menguji generalisasi 1 parameter tunggal lintas 20 pair
+memakai IS/OOS split dan walk-forward analysis (expanding window, 5 fold).
+Tidak ada filter kelayakan (MIN_CALMAR/MIN_TRADES) -- semua pair dengan
+sinyal terbaru ditampilkan apa adanya.
+"""
+import csv
+import glob
+import hashlib
+import json
+import os
+import re
+import sys
+
+try:
+    from rich.console import Console
+    from rich.table import Table
+    from rich import box
+    HAS_RICH = True
+    console = Console()
+except ImportError:
+    HAS_RICH = False
+    console = None
+
+FEE_PCT = 0.15
+
+# Parameter MACD tetap -- hasil riset generalisasi lintas 20 pair (IS/OOS +
+# walk-forward expanding window, 5 fold). Setup ini menang di semua metrik
+# walk-forward genuine dibanding kandidat lain (termasuk default klasik 12/26/9):
+# 90% pair dengan return WF rata-rata positif, median Sharpe per fold 0.368,
+# median Calmar per fold 0.126, 65% pair signifikan pada uji bootstrap (p<0.05).
+# TIDAK di-grid-search ulang per pair -- sengaja satu parameter untuk semua,
+# supaya bot live punya satu codepath sederhana dan tidak overfit per aset.
+MACD_FAST = 16
+MACD_SLOW = 26
+MACD_SIGNAL = 12
+
+# Hanya sinyal yang terjadi dalam jendela ini (hari) yang ditampilkan.
+# 0 = hanya sinyal HARI INI; sinyal 1 hari lalu ke atas dianggap kadaluarsa.
+SIGNAL_FRESHNESS_DAYS = 0
+
+
+def _freshness_label():
+    """Teks deskriptif untuk jendela freshness saat ini, dipakai di semua
+    tempat (CLI & HTML) supaya kalimatnya selalu benar secara bahasa,
+    baik untuk kasus 0 hari ('hari ini') maupun N hari ('N hari terakhir')."""
+    if SIGNAL_FRESHNESS_DAYS <= 0:
+        return "hari ini"
+    return f"{SIGNAL_FRESHNESS_DAYS} hari terakhir"
+
+# Direktori cache -- menyimpan hasil backtest per file CSV agar tidak
+# dihitung ulang jika file sumber belum berubah.
+CACHE_DIR = ".backtest_cache"
+CACHE_VERSION = 2  # dinaikkan: index.html (mode --detail) diaktifkan kembali
+
+# Label timeframe untuk ditampilkan di ringkasan (dari kode interval Binance/umum)
+TIMEFRAME_LABELS = {
+    "1m": "1 Minute", "3m": "3 Minute", "5m": "5 Minute", "15m": "15 Minute", "30m": "30 Minute",
+    "1h": "1 Hour", "2h": "2 Hour", "4h": "4 Hour", "6h": "6 Hour", "8h": "8 Hour", "12h": "12 Hour",
+    "1d": "1 Day", "daily": "1 Day", "3d": "3 Day",
+    "1w": "1 Week", "weekly": "1 Week",
+    "1M": "1 Month", "monthly": "1 Month",
+}
+
+
+def parse_filename(path):
+    """
+    Coba tebak nama pair & timeframe dari nama file, mengikuti pola umum:
+    <pair>_<timeframe>.csv
+    Contoh: btcusdt_1d.csv -> ('BTCUSDT', '1 Day')
+    Jika tidak bisa ditebak, kembalikan nama file apa adanya sebagai pair, timeframe '-'.
+    """
+    base = os.path.basename(path)
+    name = re.sub(r'\.csv$', '', base, flags=re.IGNORECASE)
+    parts = name.split('_')
+
+    if not parts:
+        return base, "-"
+
+    pair_guess = parts[0].upper()
+
+    tf_label = "-"
+    for part in parts[1:]:
+        key = part.lower()
+        if key in TIMEFRAME_LABELS:
+            tf_label = TIMEFRAME_LABELS[key]
+            break
+
+    return pair_guess, tf_label
+
+
+def find_csv_files():
+    """Cari semua file .csv di direktori kerja saat ini (tidak rekursif ke subfolder)."""
+    return sorted(glob.glob("*.csv"))
+
+
+def load_csv(path):
+    rows = []
+    with open(path, newline='') as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            rows.append({
+                'open_time': int(r['open_time']),
+                'close': float(r['close']),
+            })
+    rows.sort(key=lambda x: x['open_time'])
+    return rows
+
+
+def ema_series(closes, span):
+    alpha = 2 / (span + 1)
+    ema = [closes[0]]
+    for price in closes[1:]:
+        ema.append(alpha * price + (1 - alpha) * ema[-1])
+    return ema
+
+
+def macd_series(closes, fast, slow, signal):
+    """Hitung garis MACD (EMA cepat - EMA lambat) dan garis sinyal (EMA dari MACD)."""
+    ema_fast = ema_series(closes, fast)
+    ema_slow = ema_series(closes, slow)
+    macd_line = [f - s for f, s in zip(ema_fast, ema_slow)]
+    signal_line = ema_series(macd_line, signal)
+    return macd_line, signal_line
+
+
+def backtest_macd(closes, fast, slow, signal, open_times=None):
+    """
+    Strategi long-only spot: beli saat crossover naik, jual saat crossover
+    turun. 'BUY' = crossover naik (entry/holding), 'SELL' = crossover turun
+    (exit, menunggu sinyal BUY berikutnya).
+    """
+    n = len(closes)
+    macd_line, signal_line = macd_series(closes, fast, slow, signal)
+    above = [macd_line[i] > signal_line[i] for i in range(n)]
+
+    trades = []
+    position = None
+    entry_price = None
+
+    last_signal_idx = None   # index candle saat crossover TERAKHIR terjadi (beli atau jual)
+    last_signal_type = None  # "BUY" atau "SELL"
+
+    for i in range(slow, n):
+        if position is None and (not above[i-1]) and above[i]:
+            position = 'LONG'
+            entry_price = closes[i]
+            last_signal_idx = i
+            last_signal_type = "BUY"
+        elif position == 'LONG' and above[i-1] and (not above[i]):
+            gross = (closes[i] - entry_price) / entry_price * 100
+            trades.append({"pnl": gross - 2 * FEE_PCT})
+            position = None
+            last_signal_idx = i
+            last_signal_type = "SELL"
+
+    if position == 'LONG':
+        gross = (closes[-1] - entry_price) / entry_price * 100
+        trades.append({"pnl": gross - 2 * FEE_PCT})
+
+    if len(trades) < 3:
+        return None
+
+    equity = 1.0
+    peak = 1.0
+    max_dd = 0.0
+    wins = 0
+
+    for t in trades:
+        pnl = t["pnl"]
+        equity *= (1 + pnl / 100)
+        if equity > peak:
+            peak = equity
+        dd = (equity - peak) / peak * 100
+        if dd < max_dd:
+            max_dd = dd
+        if pnl > 0:
+            wins += 1
+
+    total_return = (equity - 1) * 100
+    win_rate = wins / len(trades) * 100
+    calmar = total_return / abs(max_dd) if max_dd != 0 else 0
+
+    days_since_last_signal = None
+    if open_times is not None and last_signal_idx is not None:
+        days_since_last_signal = (open_times[-1] - open_times[last_signal_idx]) / 86_400_000  # ms -> hari
+
+    return {
+        'fast': fast, 'slow': slow, 'signal': signal,
+        'n_trades': len(trades),
+        'win_rate': win_rate,
+        'total_return_pct': total_return,
+        'max_dd_pct': max_dd,
+        'calmar': calmar,
+        'last_signal_type': last_signal_type,
+        'days_since_last_signal': days_since_last_signal,
+    }
+
+
+def _days_label(days):
+    """Format angka hari: 0 -> 'Hari ini', selain itu '<N> hari lalu'."""
+    rounded = round(days)
+    if rounded <= 0:
+        return "Hari ini"
+    return f"{rounded} hari lalu"
+
+
+def _fmt_last_signal(r):
+    """Format ringkas plain-text: 'Hari ini (BUY)' atau '<N> hari lalu (BUY)'."""
+    if r.get('days_since_last_signal') is None or r.get('last_signal_type') is None:
+        return "-"
+    return f"{_days_label(r['days_since_last_signal'])} ({r['last_signal_type']})"
+
+
+def _fmt_last_signal_rich(r):
+    """Format dengan warna rich: hijau untuk BUY (holding), merah untuk SELL (menunggu entry)."""
+    if r.get('days_since_last_signal') is None or r.get('last_signal_type') is None:
+        return "-"
+    sig_type = r['last_signal_type']
+    color = "green" if sig_type == "BUY" else "red"
+    text = f"{_days_label(r['days_since_last_signal'])} ({sig_type})"
+    return f"[{color}]{text}[/{color}]"
+
+
+def is_signal_fresh(result):
+    """True jika result punya sinyal dan sinyal itu, setelah dibulatkan
+    dengan cara yang sama seperti label tampilan (_days_label), termasuk
+    dalam SIGNAL_FRESHNESS_DAYS hari (default: hanya 'Hari ini', yaitu
+    round(days) <= 0). Memakai round() -- bukan raw float -- supaya pair
+    yang labelnya tertulis 'Hari ini' tidak pernah tersaring keluar oleh
+    filter ini, dan sebaliknya."""
+    if result is None:
+        return False
+    days = result.get('days_since_last_signal')
+    if days is None:
+        return False
+    return round(days) <= SIGNAL_FRESHNESS_DAYS
+
+
+def _file_fingerprint(path):
+    """
+    Hitung fingerprint file CSV berdasarkan ukuran + hash konten (blake2b),
+    dikombinasikan dengan parameter & versi cache supaya cache otomatis basi
+    kalau file berubah ATAU parameter/logic berubah.
+    """
+    stat = os.stat(path)
+    hasher = hashlib.blake2b(digest_size=16)
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            hasher.update(chunk)
+    content_hash = hasher.hexdigest()
+
+    param_signature = json.dumps(
+        {"fast": MACD_FAST, "slow": MACD_SLOW, "signal": MACD_SIGNAL, "fee": FEE_PCT, "v": CACHE_VERSION},
+        sort_keys=True,
+    )
+    param_hash = hashlib.blake2b(param_signature.encode("utf-8"), digest_size=8).hexdigest()
+
+    return f"{content_hash}_{param_hash}_{stat.st_size}"
+
+
+def _cache_path_for(path):
+    base = os.path.basename(path)
+    safe_base = re.sub(r'[^A-Za-z0-9_.-]', '_', base)
+    return os.path.join(CACHE_DIR, f"{safe_base}.json")
+
+
+def _load_cache(path, fingerprint):
+    """Coba muat hasil dari cache. Return dict hasil atau None jika cache tidak ada/tidak valid."""
+    cache_file = _cache_path_for(path)
+    if not os.path.exists(cache_file):
+        return None
+    try:
+        with open(cache_file, "r", encoding="utf-8") as f:
+            cached = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    if cached.get("fingerprint") != fingerprint:
+        return None
+
+    return cached
+
+
+def _save_cache(path, fingerprint, bh_return, result, total_candle):
+    """Simpan hasil backtest MACD (parameter tunggal) ke cache sebagai JSON."""
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    cache_file = _cache_path_for(path)
+    payload = {
+        "fingerprint": fingerprint,
+        "bh_return": bh_return,
+        "total_candle": total_candle,
+        "result": result,
+    }
+    tmp_file = cache_file + ".tmp"
+    with open(tmp_file, "w", encoding="utf-8") as f:
+        json.dump(payload, f)
+    os.replace(tmp_file, cache_file)
+
+
+def run_one_file(path, use_cache=True):
+    """
+    Jalankan backtest MACD (parameter tetap 16/26/12) untuk satu file CSV.
+    Return (path, result_or_None, bh_return).
+    Tidak ada filter kelayakan -- result dihitung apa adanya; penyaringan
+    "hanya sinyal segar" dilakukan di pemanggil (main), bukan di sini.
+    """
+    fingerprint = _file_fingerprint(path) if use_cache else None
+    cached = _load_cache(path, fingerprint) if use_cache else None
+
+    if cached is not None:
+        bh_return = cached["bh_return"]
+        result = cached["result"]
+        return path, result, bh_return
+
+    rows = load_csv(path)
+    closes = [r['close'] for r in rows]
+    open_times = [r['open_time'] for r in rows]
+    total_candle = len(rows)
+
+    bh_return = (closes[-1] - closes[0]) / closes[0] * 100
+
+    result = backtest_macd(closes, MACD_FAST, MACD_SLOW, MACD_SIGNAL, open_times=open_times)
+
+    if result is not None and use_cache:
+        _save_cache(path, fingerprint, bh_return, result, total_candle)
+
+    return path, result, bh_return
+
+
+def split_and_sort_by_signal(summary):
+    """
+    Pisahkan hasil jadi dua grup berdasarkan jenis sinyal terakhir:
+    - bullish_group: sinyal terakhir BUY (posisi masih terbuka)
+    - bearish_group: sinyal terakhir SELL (menunggu sinyal beli berikutnya)
+    Item TANPA sinyal segar (<= SIGNAL_FRESHNESS_DAYS hari) sudah difilter
+    keluar sebelum fungsi ini dipanggil.
+    Setiap grup diurutkan dari sinyal PALING BARU (hari lebih kecil) ke yang lebih lama.
+    """
+    bullish, bearish = [], []
+    for item in summary:
+        path, best, bh = item
+        if best['last_signal_type'] == 'BUY':
+            bullish.append(item)
+        else:
+            bearish.append(item)
+
+    bullish.sort(key=lambda item: item[1]['days_since_last_signal'])
+    bearish.sort(key=lambda item: item[1]['days_since_last_signal'])
+    return bullish, bearish
+
+
+# ---------------------------------------------------------------------------
+# Generator index.html (mode --detail)
+# ---------------------------------------------------------------------------
+
+def _esc(val):
+    """Escape karakter HTML dasar untuk teks yang disisipkan ke markup."""
+    return (str(val)
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;"))
+
+
+def _fmt_last_signal_html(r):
+    """Format sinyal terakhir sebagai badge HTML: hijau untuk BUY (holding), oranye untuk SELL (menunggu beli)."""
+    if r.get('days_since_last_signal') is None or r.get('last_signal_type') is None:
+        return '<span class="dash">-</span>'
+    days_label = _days_label(r['days_since_last_signal'])
+    sig_type = r['last_signal_type']
+    css_class = "signal-buy" if sig_type == "BUY" else "signal-sell"
+    return (f'<span class="badge {css_class}">{sig_type}</span>'
+            f'<span class="signal-detail">{_esc(days_label)}</span>')
+
+
+def _build_summary_table_html(group):
+    """
+    Bangun tabel HTML satu grup (bullish/bearish), disederhanakan hanya
+    Pair / Timeframe / Sinyal Terakhir -- sama seperti tabel CLI, mengikuti
+    tema visual 'Backtest Read-Out'.
+    """
+    lines = ['<div class="table-wrap"><table>']
+    lines.append(
+        '<thead><tr>'
+        '<th>Pair</th>'
+        '<th class="tf-col">Timeframe</th>'
+        '<th>Sinyal Terakhir</th>'
+        '</tr></thead>'
+    )
+    lines.append('<tbody>')
+
+    for path, result, bh in group:
+        pair, tf_label = parse_filename(path)
+        tf_short = _esc(tf_label.replace(" Day", "D").replace(" Hour", "H")
+                         .replace(" Minute", "M").replace(" Week", "W").replace(" Month", "Mo")
+                         if tf_label != "-" else "-")
+
+        row_class = ' class="sell-row"' if result.get('last_signal_type') == 'SELL' else ''
+
+        pair_cell = f'<td class="pair">{_esc(pair)}</td>'
+        tf_cell = f'<td class="tf-col muted-num">{tf_short}</td>'
+        sig_cell = f'<td>{_fmt_last_signal_html(result)}</td>'
+
+        lines.append(f'<tr{row_class}>{pair_cell}{tf_cell}{sig_cell}</tr>')
+
+    lines.append('</tbody></table></div>')
+    return "\n".join(lines)
+
+
+def generate_html_section(bullish, bearish):
+    """
+    Bangun konten HTML (badan hasil saja, tanpa <head>/masthead/prose/footer
+    halaman) dari pair-pair dengan sinyal segar (<= SIGNAL_FRESHNESS_DAYS
+    hari), mengikuti tema visual 'Backtest Read-Out'. bullish/bearish adalah
+    hasil split_and_sort_by_signal, sudah difilter freshness sebelumnya.
+    """
+    lines = []
+
+    if bullish:
+        lines.append('<div class="section-label buy">')
+        lines.append('<span class="dot"></span><span class="label">Bullish</span>')
+        lines.append(f'<span class="count">— sinyal BUY {_freshness_label()} ({len(bullish)} pair)</span>')
+        lines.append('</div>')
+        lines.append(_build_summary_table_html(bullish))
+
+    if bearish:
+        lines.append('<div class="section-label sell">')
+        lines.append('<span class="dot"></span><span class="label">Bearish</span>')
+        lines.append(f'<span class="count">— sinyal SELL {_freshness_label()} ({len(bearish)} pair)</span>')
+        lines.append('</div>')
+        lines.append(_build_summary_table_html(bearish))
+
+    if not bullish and not bearish:
+        lines.append(f'<p class="empty-note">Tidak ada pair dengan sinyal {_freshness_label()}.</p>')
+
+    return "\n".join(lines)
+
+
+PAGE_CSS = """
+:root {
+  --bg: #0a0b0c;
+  --bg-raised: #121416;
+  --bg-card: #16181b;
+  --line: #26292d;
+  --line-soft: #1c1e21;
+  --text: #d8d6d0;
+  --text-muted: #83817b;
+  --text-dim: #56544f;
+  --serif: 'Fraunces', Georgia, serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --buy: #5eead4;
+  --buy-dim: rgba(94, 234, 212, 0.10);
+  --sell: #d97c4a;
+  --sell-dim: rgba(217, 124, 74, 0.10);
+  --sig: #8a8f98;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 900px 500px at 50% -10%, rgba(94, 234, 212, 0.05), transparent);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container { max-width: 1180px; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+
+/* ---------- Masthead ---------- */
+.masthead {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  flex-wrap: wrap; gap: 1rem 2rem;
+  padding-bottom: 1.5rem; margin-bottom: 1.75rem;
+  border-bottom: 1px solid var(--line);
+}
+.masthead .eyebrow {
+  font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 0.6rem;
+}
+.masthead h1 {
+  font-family: var(--serif); font-weight: 500; font-optical-sizing: auto;
+  font-size: clamp(1.7rem, 4vw, 2.5rem); line-height: 1.1;
+  color: #f2f1ec; margin: 0; letter-spacing: -0.01em;
+}
+.masthead .params {
+  text-align: right; font-size: 0.78rem; color: var(--text-muted);
+  white-space: nowrap;
+}
+.masthead .params strong { color: var(--text); font-weight: 500; }
+.masthead .params .src { margin-top: 0.35rem; }
+.masthead .params a { color: var(--buy); text-decoration: none; border-bottom: 1px dotted rgba(94,234,212,0.4); }
+.masthead .params a:hover { border-bottom-style: solid; }
+
+/* ---------- Section labels ---------- */
+.section-label {
+  display: flex; align-items: center; gap: 0.7rem;
+  margin: 2.25rem 0 0.85rem;
+  font-size: 0.8rem; letter-spacing: 0.06em;
+}
+.section-label .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.section-label.buy .dot { background: var(--buy); box-shadow: 0 0 8px rgba(94,234,212,0.6); }
+.section-label.sell .dot { background: var(--sell); box-shadow: 0 0 8px rgba(217,124,74,0.5); }
+.section-label .count {
+  color: var(--text-dim); font-weight: 400;
+}
+.section-label span.label { color: #f2f1ec; font-weight: 600; text-transform: uppercase; }
+
+/* ---------- Table ---------- */
+.table-wrap {
+  border: 1px solid var(--line); border-radius: 3px;
+  background: var(--bg-raised);
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+table { width: 100%; border-collapse: collapse; min-width: 360px; }
+thead th {
+  text-align: left; font-weight: 500; font-size: 0.62rem;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-dim); padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--line); white-space: nowrap;
+  background: var(--bg-card);
+}
+tbody td {
+  padding: 0.42rem 0.6rem; border-bottom: 1px solid var(--line-soft);
+  white-space: nowrap; font-size: 0.76rem;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr { position: relative; transition: background 0.12s ease; }
+tbody tr:hover { background: rgba(255,255,255,0.02); }
+td.pair { font-family: var(--serif); font-weight: 500; color: #f2f1ec; font-size: 0.82rem; }
+.muted-num { color: var(--text-muted); }
+
+.badge {
+  display: inline-block; padding: 0.08rem 0.4rem; border-radius: 2px;
+  font-size: 0.6rem; font-weight: 600; letter-spacing: 0.04em;
+  border: 1px solid;
+}
+.signal-buy { background: var(--buy-dim); color: var(--buy); border-color: rgba(94,234,212,0.25); }
+.signal-sell { background: var(--sell-dim); color: var(--sell); border-color: rgba(217,124,74,0.25); }
+.signal-detail { color: var(--text-dim); font-size: 0.68rem; margin-left: 0.35rem; }
+.dash { color: var(--text-dim); }
+
+.empty-note { color: var(--text-muted); font-size: 0.9rem; margin-top: 1.5rem; }
+
+/* ---------- Prose / explanatory section ---------- */
+.prose-section {
+  margin-top: 3.5rem; padding-top: 2rem; border-top: 1px solid var(--line);
+}
+.prose-section .eyebrow {
+  font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 1rem;
+}
+.prose-section p {
+  font-family: var(--serif); font-size: 1.02rem; line-height: 1.7;
+  color: #b8b6b0; max-width: 68ch; margin: 0 0 1.1rem;
+}
+.prose-section code {
+  font-family: var(--mono); background: var(--bg-card); border: 1px solid var(--line);
+  border-radius: 3px; padding: 0.05rem 0.4rem; font-size: 0.82em; color: var(--buy);
+}
+.prose-section a { color: var(--buy); text-decoration: none; border-bottom: 1px dotted rgba(94,234,212,0.4); }
+.prose-section a:hover { border-bottom-style: solid; }
+
+.field-note {
+  font-family: var(--mono); font-size: 0.82rem; color: var(--text-muted);
+  background: var(--bg-card); border: 1px solid var(--line); border-left: 2px solid var(--sell);
+  padding: 1rem 1.25rem; border-radius: 0 3px 3px 0; margin: 1.5rem 0; max-width: 68ch;
+  line-height: 1.7;
+}
+.field-note .tag { color: var(--sell); font-weight: 600; }
+
+footer {
+  margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
+  color: var(--text-dim); font-size: 0.76rem; max-width: 68ch;
+}
+footer a { color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .masthead { flex-direction: column; align-items: flex-start; }
+  .masthead .params { text-align: left; }
+}
+"""
+
+PAGE_INTRO = f"""
+<div class="masthead">
+  <div>
+    <div class="eyebrow">Backtest Read-Out</div>
+    <h1>MACD Crossover {MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}</h1>
+  </div>
+  <div class="params">
+    <div><strong>Fee:</strong> {FEE_PCT}%/sisi &nbsp;\u00b7&nbsp; <strong>Timeframe:</strong> daily &nbsp;\u00b7&nbsp; <strong>Mode:</strong> Spot, long-only</div>
+    <div class="src">Script: <a href="https://github.com/Rovikin/web/tree/main/signal/spot">github.com/Rovikin/web/signal/spot</a></div>
+  </div>
+</div>
+"""
+
+PAGE_OUTRO = f"""
+<div class="prose-section">
+  <div class="eyebrow">Metodologi &amp; Batasan</div>
+
+  <p>Parameter <code>{MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}</code> bersifat tetap untuk seluruh pair di atas
+  — tidak di-<em>grid-search</em> ulang per aset. Setup ini dipilih lewat pengujian generalisasi lintas
+  20 pair, tervalidasi melalui in-sample/out-of-sample split dan walk-forward analysis (expanding window,
+  5 fold, tanpa refitting per pair).</p>
+
+  <p>Data lokal disimpan dalam mode <em>pruned</em>: hanya 730 candle terakhir per pair yang dipertahankan
+  (jendela bergulir ±2 tahun), dan pair yang sudah tidak masuk top-100 volume otomatis dibuang dari lokal.
+  Hanya pair dengan sinyal {_freshness_label()} yang ditampilkan di halaman ini.</p>
+
+  <div class="field-note">
+    <span class="tag">[!]</span> Karena sudah melalui OOS split dan walk-forward, hasil di atas bukan lagi
+    murni in-sample — namun tetap bukan jaminan performa live. Gunakan sebagai salah satu input keputusan,
+    bukan sinyal mutlak, dan pertimbangkan manajemen risiko (position sizing, bukan all-in).
+  </div>
+</div>
+
+<footer>
+Dihasilkan otomatis oleh <code>backtest.py</code>. Metodologi: MACD crossover ({MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL}),
+parameter tetap untuk semua pair, spot long-only, fee dihitung di setiap entry &amp; exit,
+tanpa slippage. Divalidasi IS/OOS split + walk-forward expanding window. Script
+pengambilan data (<code>fetch.py</code>) dan backtest (<code>backtest.py</code>):
+<a href="https://github.com/Rovikin/web/tree/main/signal/spot">github.com/Rovikin/web/tree/main/signal/spot</a>
+— silakan jalankan sendiri untuk mengunduh data terbaru dari Binance dan uji ulang secara mandiri.
+</footer>
+"""
+
+HTML_START_MARKER = "<!-- BACKTEST_RESULTS_START -->"
+HTML_END_MARKER = "<!-- BACKTEST_RESULTS_END -->"
+
+PAGE_TITLE = f"Hasil Backtest MACD ({MACD_FAST}/{MACD_SLOW}/{MACD_SIGNAL})"
+
+# CATATAN AREA MARKER:
+# Marker membungkus PAGE_INTRO + hasil (body) + PAGE_OUTRO -- SEMUA konten
+# yang murni dihasilkan dari kode Python (bukan pernah diedit manual oleh
+# user), termasuk URL github, angka parameter MACD, dan teks metodologi.
+# Ini disengaja: kalau salah satu dari PAGE_INTRO/PAGE_OUTRO diubah di kode
+# (mis. path repo pindah dari chart/ ke signal/spot/), perubahan itu HARUS
+# ikut ter-update setiap kali --detail dijalankan, bukan "terkunci" ke
+# versi lama yang sudah ter-tulis di index.html sebelumnya.
+#
+# Hanya <style>{PAGE_CSS}</style> yang SENGAJA diletakkan DI LUAR marker,
+# karena itu satu-satunya bagian yang realistis diedit manual oleh user
+# (mis. mengganti warna aksen) dan ingin dipertahankan lintas run.
+PAGE_TEMPLATE = f"""<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hasil Backtest MACD (16/26/12)</title>
+<title>{PAGE_TITLE}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<style>{PAGE_CSS}</style>
 </head>
 <body>
 <div class="container">
-
-  <div class="masthead">
-    <div>
-      <div class="eyebrow">Backtest Read-Out</div>
-      <h1>MACD Crossover</h1>
-    </div>
-    <div class="params" id="masthead-params">
-      <div class="loading-note">Memuat parameter&hellip;</div>
-    </div>
-  </div>
-
-  <div id="results-root">
-    <p class="loading-note">Memuat hasil backtest&hellip;</p>
-  </div>
-
-  <div class="prose-section">
-    <div class="eyebrow">Metodologi &amp; Batasan</div>
-
-    <p>Parameter MACD bersifat tetap untuk seluruh pair di atas — tidak
-    di-<em>grid-search</em> ulang per aset. Setup ini dipilih lewat pengujian
-    generalisasi lintas 20 pair, tervalidasi melalui in-sample/out-of-sample
-    split dan walk-forward analysis (expanding window, 5 fold, tanpa
-    refitting per pair).</p>
-
-    <p>Data lokal disimpan dalam mode <em>pruned</em>: hanya 730 candle
-    terakhir per pair yang dipertahankan (jendela bergulir &plusmn;2 tahun),
-    dan pair yang sudah tidak masuk top-100 volume otomatis dibuang dari
-    lokal. Hanya pair dengan sinyal segar yang ditampilkan di halaman ini.</p>
-
-    <div class="field-note">
-      <span class="tag">[!]</span> Karena sudah melalui OOS split dan
-      walk-forward, hasil di atas bukan lagi murni in-sample — namun tetap
-      bukan jaminan performa live. Gunakan sebagai salah satu input
-      keputusan, bukan sinyal mutlak, dan pertimbangkan manajemen risiko
-      (position sizing, bukan all-in).
-    </div>
-  </div>
-
-  <footer>
-    Dihasilkan otomatis oleh <code>backtest.py</code>. Metodologi: MACD
-    crossover, parameter tetap untuk semua pair, spot long-only, fee
-    dihitung di setiap entry &amp; exit, tanpa slippage. Divalidasi IS/OOS
-    split + walk-forward expanding window. Script pengambilan data
-    (<code>fetch.py</code>) dan backtest (<code>backtest.py</code>):
-    <a href="https://github.com/Rovikin/web/tree/main/signal/spot">github.com/Rovikin/web/tree/main/signal/spot</a>
-    — silakan jalankan sendiri untuk mengunduh data terbaru dari Binance dan
-    uji ulang secara mandiri.
-    <div class="generated-at" id="generated-at"></div>
-  </footer>
-
+{HTML_START_MARKER}
+__BODY__
+{HTML_END_MARKER}
 </div>
-<script src="app.js"></script>
 </body>
 </html>
+"""
+
+
+def write_html_report(bullish, bearish, output_path="index.html"):
+    """
+    Tulis/perbarui index.html:
+    - Jika belum ada -> buat halaman lengkap (head/CSS + [intro+hasil+footer]
+      dibungkus marker).
+    - Jika sudah ada dan markernya ditemukan -> ganti konten di antara marker
+      (intro + hasil + footer) sepenuhnya dengan versi terbaru dari kode --
+      termasuk PAGE_INTRO dan PAGE_OUTRO, supaya link/teks yang berasal dari
+      kode (mis. path repo, angka parameter) tidak pernah "terkunci" ke versi
+      lama. Hanya <style> di luar marker yang dipertahankan lintas run,
+      karena itu satu-satunya bagian yang realistis diedit manual oleh user.
+    """
+    results_body = generate_html_section(bullish, bearish)
+    full_body = f"{PAGE_INTRO}\n{results_body}\n{PAGE_OUTRO}"
+    wrapped_body = f"{HTML_START_MARKER}\n{full_body}\n{HTML_END_MARKER}"
+
+    if os.path.exists(output_path):
+        with open(output_path, "r", encoding="utf-8") as f:
+            existing = f.read()
+        if HTML_START_MARKER in existing and HTML_END_MARKER in existing:
+            pre = existing.split(HTML_START_MARKER)[0]
+            post = existing.split(HTML_END_MARKER)[1]
+            new_content = pre + wrapped_body + post
+        else:
+            # Belum ada marker -- anggap file lama/manual, buat ulang dari template
+            new_content = PAGE_TEMPLATE.replace("__BODY__", full_body)
+    else:
+        new_content = PAGE_TEMPLATE.replace("__BODY__", full_body)
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(new_content)
+
+    return output_path
+
+
+def main():
+    args = sys.argv[1:]
+
+    detail_mode = False
+    if "--detail" in args:
+        detail_mode = True
+        args.remove("--detail")
+
+    use_cache = True
+    if "--no-cache" in args:
+        use_cache = False
+        args.remove("--no-cache")
+
+    if args:
+        paths = args
+    else:
+        paths = find_csv_files()
+        if not paths:
+            msg = "Tidak ada file .csv ditemukan di direktori ini."
+            usage = "Cara pakai: python3 backtest.py [<file_csv> ...]"
+            if HAS_RICH:
+                console.print(f"[red]{msg}[/red]")
+                console.print(usage)
+            else:
+                print(msg)
+                print(usage)
+            sys.exit(1)
+
+    summary = []
+    for path in paths:
+        p, best, bh = run_one_file(path, use_cache=use_cache)
+        if is_signal_fresh(best):
+            summary.append((p, best, bh))
+
+    bullish, bearish = split_and_sort_by_signal(summary)
+
+    def _build_rich_table(title, group, border_style):
+        table = Table(title=title, box=box.ROUNDED, show_lines=True, title_style="bold magenta", border_style=border_style)
+        table.add_column("Pair", style="bold cyan", no_wrap=True)
+        table.add_column("Timeframe", style="cyan")
+        table.add_column("Sinyal Terakhir", justify="right")
+
+        for path, best, bh in group:
+            pair, tf_label = parse_filename(path)
+            row = [pair, tf_label, _fmt_last_signal_rich(best)]
+            table.add_row(*row)
+        return table
+
+    def _print_plain_group(title, group):
+        print(f"\n{title}")
+        for path, best, bh in group:
+            pair, tf_label = parse_filename(path)
+            sig = _fmt_last_signal(best)
+            print(f"{pair} Timeframe {tf_label}: Sinyal Terakhir {sig}")
+
+    if not bullish and not bearish:
+        msg = f"Tidak ada pair dengan sinyal {_freshness_label()}."
+        console.print(f"[yellow]{msg}[/yellow]") if HAS_RICH else print(msg)
+        if detail_mode:
+            html_path = write_html_report(bullish, bearish)
+            note = f"\nindex.html diperbarui (kosong -- tidak ada sinyal segar): {os.path.abspath(html_path)}"
+            console.print(f"[bold yellow]{note}[/bold yellow]") if HAS_RICH else print(note)
+        return
+
+    if HAS_RICH:
+        console.print()
+        if bullish:
+            console.print(_build_rich_table("Sinyal Terbaru -- Bullish (BUY)", bullish, "green"))
+        if bearish:
+            console.print()
+            console.print(_build_rich_table("Sinyal Terbaru -- Bearish (SELL)", bearish, "red"))
+    else:
+        if bullish:
+            _print_plain_group("Sinyal Terbaru -- Bullish (BUY):", bullish)
+        if bearish:
+            _print_plain_group("Sinyal Terbaru -- Bearish (SELL):", bearish)
+
+    if detail_mode:
+        html_path = write_html_report(bullish, bearish)
+        msg = f"\nindex.html diperbarui: {os.path.abspath(html_path)}"
+        console.print(f"[bold green]{msg}[/bold green]") if HAS_RICH else print(msg)
+
+
+if __name__ == "__main__":
+    main()
+
