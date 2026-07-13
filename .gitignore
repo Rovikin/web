@@ -1,4 +1,4 @@
-chart/*.csv
-!chart/host/*.csv
-chart/.backtest_cache/
-**/.backtest_cache/
+signal/spot/*.csv
+signal/futures/*.csv
+signal/spot/.backtest_cache/
+signal/futures/.backtest_cache/
