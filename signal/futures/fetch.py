@@ -1,37 +1,4 @@
 #!/usr/bin/env python3
-"""
-fetch.py -- Unduh & sinkronisasi data historis OHLCV Binance USDT-M Futures.
-
-Cakupan tetap (tidak dikonfigurasi lewat argumen):
-  - Sumber   : Binance USDT-M Futures API (fapi.binance.com)
-  - Pair     : top 100 pair *USDT berdasarkan volume 24 jam (quoteVolume),
-               diambil otomatis dari endpoint ticker/24hr setiap kali dijalankan
-  - Timeframe: 1h
-  - Mode     : PRUNED -- dua bentuk sekaligus:
-               1) Pruned by count: setiap kali ada candle baru masuk, candle
-                  paling lama dibuang supaya jumlah candle tersimpan tidak
-                  pernah melebihi PRUNE_MAX_CANDLES (720 candle ~ 30 hari
-                  data 1h). File CSV lokal hanya berisi jendela bergulir
-                  1 bulan terakhir, BUKAN histori penuh.
-               2) Pruned by ranking: jika sebuah pair sudah tidak lagi masuk
-                  top-100 volume pada run saat ini, file CSV lokal (dan cache
-                  backtest terkait di .backtest_cache/) DIHAPUS otomatis --
-                  supaya tidak ada data basi yang ikut diproses backtest.py
-                  atau memenuhi disk untuk pair yang sudah tidak relevan.
-
-Cara pakai:
-    python3 fetch.py
-
-Tidak ada argumen lain. Pair di-sync SECARA PARALEL (beberapa worker
-sekaligus) untuk mempercepat proses -- jumlah total API call ke Binance
-tidak berubah, hanya waktu tunggu total yang berkurang.
-
-TANPA library eksternal (hanya urllib + concurrent.futures bawaan Python)
--- kompatibel Termux standar.
-
-Nama file output otomatis:
-    <pair_lowercase>_1h.csv    (mis. btcusdt_1h.csv, xmrusdt_1h.csv)
-"""
 
 import csv
 import glob
@@ -47,27 +14,22 @@ import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
-# ---------------------------------------------------------------------------
-# Konfigurasi
-# ---------------------------------------------------------------------------
 
 FAPI_BASE_URL = "https://fapi.binance.com/fapi/v1/klines"
 FAPI_TICKER_URL = "https://fapi.binance.com/fapi/v1/ticker/24hr"
 FAPI_LIMIT = 1000
 
 TIMEFRAME = "1h"
-INTERVAL_MS = 3_600_000  # durasi 1 candle 1h dalam milidetik
+INTERVAL_MS = 3_600_000
 
 TOP_N_PAIRS = 100
-PRUNE_MAX_CANDLES = 720  # ~30 hari data 1h; jendela bergulir, candle tertua dibuang
+PRUNE_MAX_CANDLES = 720
 
-MAX_WORKERS = 10  # jumlah pair yang di-sync bersamaan; jumlah API call TIDAK berubah,
-                   # hanya waktu tunggu total yang berkurang
+MAX_WORKERS = 10
 
 FIELDNAMES = ["open_time", "open", "high", "low", "close", "close_time", "is_closed"]
 
-CACHE_DIR = ".backtest_cache"  # sama dengan CACHE_DIR di backtest.py; dipakai untuk
-                                # ikut membersihkan cache pair yang sudah tidak top-100
+CACHE_DIR = ".backtest_cache"
 
 _log_lock = threading.Lock()
 
@@ -82,17 +44,6 @@ def die(msg):
     sys.exit(1)
 
 
-# ---------------------------------------------------------------------------
-# Daftar top 100 pair USDT-M futures berdasarkan volume 24 jam
-# ---------------------------------------------------------------------------
-
-# Base asset yang merupakan stablecoin lain (dipatok ~1:1 ke USD) --
-# pair semacam USDCUSDT, FDUSDUSDT, BUSDUSDT hanya mencerminkan peg/depeg
-# antar-stablecoin, bukan momentum harga aset yang relevan untuk screening
-# MACD. Selalu dikecualikan dari top-100 volume, terlepas dari volumenya
-# (stablecoin sering punya volume sangat tinggi karena dipakai sebagai
-# pasangan arbitrase/parkir dana, sehingga bisa mendominasi slot top-100
-# kalau tidak difilter).
 STABLECOIN_BASES = {
     "USDC", "FDUSD", "BUSD", "TUSD", "USD1", "DAI", "USDP", "PYUSD",
     "EURI", "AEUR", "XUSD", "USDE", "RLUSD", "GUSD", "FRAX", "USDD",
@@ -100,22 +51,11 @@ STABLECOIN_BASES = {
 
 
 def _is_stablecoin_pair(symbol):
-    """True jika base asset dari symbol (bagian sebelum 'USDT') adalah
-    stablecoin lain, mis. 'USDCUSDT' -> base 'USDC' -> True."""
     base = symbol[:-len("USDT")] if symbol.endswith("USDT") else symbol
     return base.upper() in STABLECOIN_BASES
 
 
 def fetch_top_pairs(n=TOP_N_PAIRS):
-    """Ambil semua ticker 24h dari Binance Futures, filter *USDT (tanpa
-    pair stablecoin-vs-stablecoin), urutkan descending berdasarkan
-    quoteVolume, kembalikan n symbol teratas.
-
-    CATATAN: simbol non-ASCII (mis. token nama Mandarin seperti
-    '\u5e01\u5b89\u4eba\u751fUSDT' / BinanceLife) TIDAK disaring keluar --
-    ini pair futures resmi yang valid di Binance walau simbolnya memakai
-    karakter Hanzi. Penanganan encoding-nya ada di fapi_fetch_batch()
-    lewat urllib.parse.quote(), bukan dengan melewati pair ini."""
     req = urllib.request.Request(FAPI_TICKER_URL, headers={"User-Agent": "Mozilla/5.0"})
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
@@ -134,22 +74,12 @@ def fetch_top_pairs(n=TOP_N_PAIRS):
     return [d["symbol"] for d in usdt_pairs[:n]]
 
 
-# ---------------------------------------------------------------------------
-# Fetch candle dari Binance Futures
-# ---------------------------------------------------------------------------
 
 def next_candle_due_at(last_open_time_ms):
-    """Hitung epoch ms saat candle berikutnya (setelah last_open_time_ms)
-    dipastikan sudah closed. Dipakai untuk melewati request jaringan yang
-    sia-sia jika dipastikan belum ada candle baru."""
     return last_open_time_ms + (2 * INTERVAL_MS)
 
 
 def fapi_fetch_batch(symbol, start_time_ms):
-    # quote() sebagai jaring pengaman -- fetch_top_pairs tidak menyaring
-    # simbol non-ASCII (karena bisa jadi pair futures resmi seperti token
-    # nama Mandarin), jadi encode di sini supaya fungsi ini tetap aman
-    # dipanggil dengan simbol apa pun tanpa error 'ascii' codec can't encode.
     safe_symbol = urllib.parse.quote(symbol, safe="")
     url = f"{FAPI_BASE_URL}?symbol={safe_symbol}&interval={TIMEFRAME}&limit={FAPI_LIMIT}&startTime={start_time_ms}"
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -166,9 +96,6 @@ def fapi_fetch_batch(symbol, start_time_ms):
 
 
 def fapi_fetch_full(symbol, start_time_ms):
-    """Ambil semua candle sejak start_time_ms sampai sekarang, dengan
-    pagination penuh (dibutuhkan hanya untuk unduhan pertama; setelah itu
-    jendela sudah di-prune jadi kecil sehingga cukup 1 batch per sync)."""
     all_klines = []
     now_ms = int(time.time() * 1000)
     effective_start = start_time_ms
@@ -217,9 +144,6 @@ def klines_to_rows(klines):
     return rows
 
 
-# ---------------------------------------------------------------------------
-# Penyimpanan lokal (mode pruned)
-# ---------------------------------------------------------------------------
 
 def load_local_data(path):
     if not os.path.exists(path):
@@ -242,9 +166,6 @@ def load_local_data(path):
 
 
 def save_local_data(path, rows):
-    """Simpan rows terurut, dipangkas ke PRUNE_MAX_CANDLES candle TERBARU.
-    Setiap kali candle baru masuk dan totalnya melebihi batas, candle
-    paling lama otomatis dibuang di sini."""
     rows = sorted(rows, key=lambda x: x["open_time"])
     if len(rows) > PRUNE_MAX_CANDLES:
         rows = rows[-PRUNE_MAX_CANDLES:]
@@ -260,17 +181,8 @@ def output_filename(pair):
     return f"{pair.lower()}_{TIMEFRAME}.csv"
 
 
-# ---------------------------------------------------------------------------
-# Pruned by ranking: hapus CSV + cache pair yang sudah tidak masuk top-100
-# ---------------------------------------------------------------------------
 
 def cleanup_stale_pairs(current_pairs):
-    """
-    Hapus file CSV (dan cache backtest terkait di CACHE_DIR/) untuk pair
-    yang PERNAH tersimpan lokal tapi sudah tidak ada lagi di daftar
-    top-100 volume hasil query saat ini. Hanya menyentuh file berpola
-    <pair>_1h.csv -- file lain di direktori tidak diganggu.
-    """
     current_files = {output_filename(p) for p in current_pairs}
     local_files = set(glob.glob(f"*_{TIMEFRAME}.csv"))
     stale_files = local_files - current_files
@@ -286,7 +198,6 @@ def cleanup_stale_pairs(current_pairs):
             log(f"  Gagal menghapus {f}: {e}")
             continue
 
-        # Ikut hapus cache backtest terkait file ini, jika ada.
         safe_base = re.sub(r'[^A-Za-z0-9_.-]', '_', f)
         cache_file = os.path.join(CACHE_DIR, f"{safe_base}.json")
         if os.path.exists(cache_file):
@@ -298,19 +209,11 @@ def cleanup_stale_pairs(current_pairs):
     return len(stale_files)
 
 
-# ---------------------------------------------------------------------------
-# Sync satu pair (mode pruned)
-# ---------------------------------------------------------------------------
 
 def sync_pair(pair, output_file):
-    """Sync satu pair. Perilaku sync (skip request jika belum due, merge
-    berdasarkan open_time) tetap sama seperti sebelumnya -- yang baru hanya
-    pemangkasan ke PRUNE_MAX_CANDLES candle terbaru di setiap penyimpanan."""
     existing = load_local_data(output_file)
 
     if not existing:
-        # Unduhan pertama: cukup mundur PRUNE_MAX_CANDLES jam dari sekarang,
-        # tidak perlu histori penuh karena toh akan dipangkas ke 720 candle.
         now_ms = int(time.time() * 1000)
         start_ms = now_ms - (PRUNE_MAX_CANDLES + 5) * INTERVAL_MS
         log(f"  Data lokal belum ada. Mengunduh ~{PRUNE_MAX_CANDLES} candle terakhir...")
@@ -322,12 +225,6 @@ def sync_pair(pair, output_file):
         rows = [r for r in rows if r["is_closed"]]
 
         if not rows:
-            # Binance API merespons normal tapi tanpa candle sama sekali --
-            # ini BUKAN kegagalan jaringan/HTTP, melainkan tanda pair sudah
-            # tidak tradable (mis. sudah didelist) atau baru listing dan
-            # belum punya candle closed. Jangan simpan file kosong --
-            # biarkan tidak ada file lokal untuk pair ini sampai ada data
-            # candle sungguhan pada run berikutnya.
             log(f"  Tidak ada data candle untuk {pair} (kemungkinan sudah "
                 f"delisted/tidak tradable) -- dilewati, tidak menyimpan file kosong.")
             return []
@@ -367,9 +264,6 @@ def sync_pair(pair, output_file):
     return final_rows
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
 
 def main():
     if len(sys.argv) > 1:

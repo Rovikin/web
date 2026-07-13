@@ -1,41 +1,3 @@
-"""
-Backtest MACD Crossover (16/26/12) -- PURE PYTHON, tanpa numpy/pandas.
-Parameter tunggal tetap, hasil riset generalisasi lintas 20 pair (IS/OOS split
-+ walk-forward analysis expanding window). Bukan grid search in-sample.
-Kompatibel dengan Termux standar tanpa instalasi library tambahan.
-
-Cara pakai:
-    python3 backtest.py                          # auto-scan semua .csv di folder ini, tabel CLI
-    python3 backtest.py --detail                  # auto-scan + tulis/perbarui index.html
-    python3 backtest.py <file_csv>                # satu file, tabel CLI
-    python3 backtest.py <file_csv_1> <file_csv_2> --detail # banyak file spesifik + index.html
-
-Hanya pair dengan SINYAL TERBARU (terjadi HARI INI) yang ditampilkan --
-baik di tabel CLI maupun di index.html. Pair yang datanya belum cukup
-untuk menghasilkan sinyal, atau sinyal terakhirnya terjadi kemarin atau
-lebih lama, tidak ditampilkan sama sekali di kedua mode.
-
-Konteks: Binance Spot, timeframe 1D, long-only (beli lalu jual -- tidak ada
-short). Sinyal ditampilkan sebagai BUY (crossover naik, entry/holding) atau
-SELL (crossover turun, exit -- menunggu sinyal BUY berikutnya).
-
-CATATAN index.html:
-Hanya flag --detail yang menulis/memperbarui index.html di direktori kerja
-saat ini. Perintah biasa (tanpa --detail) TIDAK pernah menyentuh index.html.
-Jika index.html sudah ada, hanya bagian di antara marker
-<!-- BACKTEST_RESULTS_START --> ... <!-- BACKTEST_RESULTS_END -->
-yang diperbarui -- bagian lain (CSS, intro, footer) tetap dipertahankan
-selama marker START/END masih ada di file, meskipun diedit manual.
-Tabel di index.html disederhanakan sama seperti tabel CLI: hanya kolom
-Pair, Timeframe, dan Sinyal Terakhir.
-
-CATATAN METODE:
-Parameter MACD 16/26/12 dipakai tetap untuk semua pair, hasil dari riset
-terpisah yang menguji generalisasi 1 parameter tunggal lintas 20 pair
-memakai IS/OOS split dan walk-forward analysis (expanding window, 5 fold).
-Tidak ada filter kelayakan (MIN_CALMAR/MIN_TRADES) -- semua pair dengan
-sinyal terbaru ditampilkan apa adanya.
-"""
 import csv
 import glob
 import hashlib
@@ -56,36 +18,21 @@ except ImportError:
 
 FEE_PCT = 0.15
 
-# Parameter MACD tetap -- hasil riset generalisasi lintas 20 pair (IS/OOS +
-# walk-forward expanding window, 5 fold). Setup ini menang di semua metrik
-# walk-forward genuine dibanding kandidat lain (termasuk default klasik 12/26/9):
-# 90% pair dengan return WF rata-rata positif, median Sharpe per fold 0.368,
-# median Calmar per fold 0.126, 65% pair signifikan pada uji bootstrap (p<0.05).
-# TIDAK di-grid-search ulang per pair -- sengaja satu parameter untuk semua,
-# supaya bot live punya satu codepath sederhana dan tidak overfit per aset.
 MACD_FAST = 16
 MACD_SLOW = 26
 MACD_SIGNAL = 12
 
-# Hanya sinyal yang terjadi dalam jendela ini (hari) yang ditampilkan.
-# 0 = hanya sinyal HARI INI; sinyal 1 hari lalu ke atas dianggap kadaluarsa.
 SIGNAL_FRESHNESS_DAYS = 0
 
 
 def _freshness_label():
-    """Teks deskriptif untuk jendela freshness saat ini, dipakai di semua
-    tempat (CLI & HTML) supaya kalimatnya selalu benar secara bahasa,
-    baik untuk kasus 0 hari ('hari ini') maupun N hari ('N hari terakhir')."""
     if SIGNAL_FRESHNESS_DAYS <= 0:
         return "hari ini"
     return f"{SIGNAL_FRESHNESS_DAYS} hari terakhir"
 
-# Direktori cache -- menyimpan hasil backtest per file CSV agar tidak
-# dihitung ulang jika file sumber belum berubah.
 CACHE_DIR = ".backtest_cache"
-CACHE_VERSION = 2  # dinaikkan: index.html (mode --detail) diaktifkan kembali
+CACHE_VERSION = 2
 
-# Label timeframe untuk ditampilkan di ringkasan (dari kode interval Binance/umum)
 TIMEFRAME_LABELS = {
     "1m": "1 Minute", "3m": "3 Minute", "5m": "5 Minute", "15m": "15 Minute", "30m": "30 Minute",
     "1h": "1 Hour", "2h": "2 Hour", "4h": "4 Hour", "6h": "6 Hour", "8h": "8 Hour", "12h": "12 Hour",
@@ -96,12 +43,6 @@ TIMEFRAME_LABELS = {
 
 
 def parse_filename(path):
-    """
-    Coba tebak nama pair & timeframe dari nama file, mengikuti pola umum:
-    <pair>_<timeframe>.csv
-    Contoh: btcusdt_1d.csv -> ('BTCUSDT', '1 Day')
-    Jika tidak bisa ditebak, kembalikan nama file apa adanya sebagai pair, timeframe '-'.
-    """
     base = os.path.basename(path)
     name = re.sub(r'\.csv$', '', base, flags=re.IGNORECASE)
     parts = name.split('_')
@@ -122,7 +63,6 @@ def parse_filename(path):
 
 
 def find_csv_files():
-    """Cari semua file .csv di direktori kerja saat ini (tidak rekursif ke subfolder)."""
     return sorted(glob.glob("*.csv"))
 
 
@@ -148,7 +88,6 @@ def ema_series(closes, span):
 
 
 def macd_series(closes, fast, slow, signal):
-    """Hitung garis MACD (EMA cepat - EMA lambat) dan garis sinyal (EMA dari MACD)."""
     ema_fast = ema_series(closes, fast)
     ema_slow = ema_series(closes, slow)
     macd_line = [f - s for f, s in zip(ema_fast, ema_slow)]
@@ -157,11 +96,6 @@ def macd_series(closes, fast, slow, signal):
 
 
 def backtest_macd(closes, fast, slow, signal, open_times=None):
-    """
-    Strategi long-only spot: beli saat crossover naik, jual saat crossover
-    turun. 'BUY' = crossover naik (entry/holding), 'SELL' = crossover turun
-    (exit, menunggu sinyal BUY berikutnya).
-    """
     n = len(closes)
     macd_line, signal_line = macd_series(closes, fast, slow, signal)
     above = [macd_line[i] > signal_line[i] for i in range(n)]
@@ -170,8 +104,8 @@ def backtest_macd(closes, fast, slow, signal, open_times=None):
     position = None
     entry_price = None
 
-    last_signal_idx = None   # index candle saat crossover TERAKHIR terjadi (beli atau jual)
-    last_signal_type = None  # "BUY" atau "SELL"
+    last_signal_idx = None
+    last_signal_type = None
 
     for i in range(slow, n):
         if position is None and (not above[i-1]) and above[i]:
@@ -230,7 +164,6 @@ def backtest_macd(closes, fast, slow, signal, open_times=None):
 
 
 def _days_label(days):
-    """Format angka hari: 0 -> 'Hari ini', selain itu '<N> hari lalu'."""
     rounded = round(days)
     if rounded <= 0:
         return "Hari ini"
@@ -238,14 +171,12 @@ def _days_label(days):
 
 
 def _fmt_last_signal(r):
-    """Format ringkas plain-text: 'Hari ini (BUY)' atau '<N> hari lalu (BUY)'."""
     if r.get('days_since_last_signal') is None or r.get('last_signal_type') is None:
         return "-"
     return f"{_days_label(r['days_since_last_signal'])} ({r['last_signal_type']})"
 
 
 def _fmt_last_signal_rich(r):
-    """Format dengan warna rich: hijau untuk BUY (holding), merah untuk SELL (menunggu entry)."""
     if r.get('days_since_last_signal') is None or r.get('last_signal_type') is None:
         return "-"
     sig_type = r['last_signal_type']
@@ -255,12 +186,6 @@ def _fmt_last_signal_rich(r):
 
 
 def is_signal_fresh(result):
-    """True jika result punya sinyal dan sinyal itu, setelah dibulatkan
-    dengan cara yang sama seperti label tampilan (_days_label), termasuk
-    dalam SIGNAL_FRESHNESS_DAYS hari (default: hanya 'Hari ini', yaitu
-    round(days) <= 0). Memakai round() -- bukan raw float -- supaya pair
-    yang labelnya tertulis 'Hari ini' tidak pernah tersaring keluar oleh
-    filter ini, dan sebaliknya."""
     if result is None:
         return False
     days = result.get('days_since_last_signal')
@@ -270,11 +195,6 @@ def is_signal_fresh(result):
 
 
 def _file_fingerprint(path):
-    """
-    Hitung fingerprint file CSV berdasarkan ukuran + hash konten (blake2b),
-    dikombinasikan dengan parameter & versi cache supaya cache otomatis basi
-    kalau file berubah ATAU parameter/logic berubah.
-    """
     stat = os.stat(path)
     hasher = hashlib.blake2b(digest_size=16)
     with open(path, "rb") as f:
@@ -298,7 +218,6 @@ def _cache_path_for(path):
 
 
 def _load_cache(path, fingerprint):
-    """Coba muat hasil dari cache. Return dict hasil atau None jika cache tidak ada/tidak valid."""
     cache_file = _cache_path_for(path)
     if not os.path.exists(cache_file):
         return None
@@ -315,7 +234,6 @@ def _load_cache(path, fingerprint):
 
 
 def _save_cache(path, fingerprint, bh_return, result, total_candle):
-    """Simpan hasil backtest MACD (parameter tunggal) ke cache sebagai JSON."""
     os.makedirs(CACHE_DIR, exist_ok=True)
     cache_file = _cache_path_for(path)
     payload = {
@@ -331,12 +249,6 @@ def _save_cache(path, fingerprint, bh_return, result, total_candle):
 
 
 def run_one_file(path, use_cache=True):
-    """
-    Jalankan backtest MACD (parameter tetap 16/26/12) untuk satu file CSV.
-    Return (path, result_or_None, bh_return).
-    Tidak ada filter kelayakan -- result dihitung apa adanya; penyaringan
-    "hanya sinyal segar" dilakukan di pemanggil (main), bukan di sini.
-    """
     fingerprint = _file_fingerprint(path) if use_cache else None
     cached = _load_cache(path, fingerprint) if use_cache else None
 
@@ -361,14 +273,6 @@ def run_one_file(path, use_cache=True):
 
 
 def split_and_sort_by_signal(summary):
-    """
-    Pisahkan hasil jadi dua grup berdasarkan jenis sinyal terakhir:
-    - bullish_group: sinyal terakhir BUY (posisi masih terbuka)
-    - bearish_group: sinyal terakhir SELL (menunggu sinyal beli berikutnya)
-    Item TANPA sinyal segar (<= SIGNAL_FRESHNESS_DAYS hari) sudah difilter
-    keluar sebelum fungsi ini dipanggil.
-    Setiap grup diurutkan dari sinyal PALING BARU (hari lebih kecil) ke yang lebih lama.
-    """
     bullish, bearish = [], []
     for item in summary:
         path, best, bh = item
@@ -382,9 +286,6 @@ def split_and_sort_by_signal(summary):
     return bullish, bearish
 
 
-# ---------------------------------------------------------------------------
-# Generator index.html (mode --detail)
-# ---------------------------------------------------------------------------
 
 def _esc(val):
     """Escape karakter HTML dasar untuk teks yang disisipkan ke markup."""
@@ -395,7 +296,6 @@ def _esc(val):
 
 
 def _fmt_last_signal_html(r):
-    """Format sinyal terakhir sebagai badge HTML: hijau untuk BUY (holding), oranye untuk SELL (menunggu beli)."""
     if r.get('days_since_last_signal') is None or r.get('last_signal_type') is None:
         return '<span class="dash">-</span>'
     days_label = _days_label(r['days_since_last_signal'])
@@ -406,11 +306,6 @@ def _fmt_last_signal_html(r):
 
 
 def _build_summary_table_html(group):
-    """
-    Bangun tabel HTML satu grup (bullish/bearish), disederhanakan hanya
-    Pair / Timeframe / Sinyal Terakhir -- sama seperti tabel CLI, mengikuti
-    tema visual 'Backtest Read-Out'.
-    """
     lines = ['<div class="table-wrap"><table>']
     lines.append(
         '<thead><tr>'
@@ -440,12 +335,6 @@ def _build_summary_table_html(group):
 
 
 def generate_html_section(bullish, bearish):
-    """
-    Bangun konten HTML (badan hasil saja, tanpa <head>/masthead/prose/footer
-    halaman) dari pair-pair dengan sinyal segar (<= SIGNAL_FRESHNESS_DAYS
-    hari), mengikuti tema visual 'Backtest Read-Out'. bullish/bearish adalah
-    hasil split_and_sort_by_signal, sudah difilter freshness sebelumnya.
-    """
     lines = []
 
     if bullish:
@@ -691,12 +580,6 @@ __BODY__
 
 
 def write_html_report(bullish, bearish, output_path="index.html"):
-    """
-    Tulis/perbarui index.html:
-    - Jika belum ada -> buat halaman lengkap (head + intro + hasil + footer), dibungkus marker.
-    - Jika sudah ada dan markernya ditemukan -> ganti HANYA konten di antara marker,
-      pertahankan bagian lain yang mungkin sudah diedit manual (CSS, intro, dsb).
-    """
     body = generate_html_section(bullish, bearish)
     wrapped_body = f"{HTML_START_MARKER}\n{body}\n{HTML_END_MARKER}"
 
@@ -708,7 +591,6 @@ def write_html_report(bullish, bearish, output_path="index.html"):
             post = existing.split(HTML_END_MARKER)[1]
             new_content = pre + wrapped_body + post
         else:
-            # Belum ada marker -- anggap file lama/manual, buat ulang dari template
             new_content = PAGE_TEMPLATE.replace("__BODY__", body)
     else:
         new_content = PAGE_TEMPLATE.replace("__BODY__", body)

@@ -1,26 +1,3 @@
-"""
-Backtest MACD Crossover (16/26/12) -- PURE PYTHON, tanpa numpy/pandas.
-Parameter tunggal tetap, hasil riset generalisasi lintas 20 pair (IS/OOS split
-+ walk-forward analysis expanding window). Bukan grid search in-sample.
-Kompatibel dengan Termux standar tanpa instalasi library tambahan.
-
-Cara pakai:
-    python3 backtest.py                          # auto-scan semua .csv di folder ini
-    python3 backtest.py <file_csv>                # satu file
-    python3 backtest.py <file_csv_1> <file_csv_2> # banyak file spesifik
-
-Hanya pair dengan SINYAL TERBARU (terjadi JAM INI) yang ditampilkan.
-Pair yang datanya belum cukup untuk menghasilkan sinyal, atau sinyal
-terakhirnya terjadi 1 jam lalu atau lebih lama, tidak ditampilkan sama
-sekali.
-
-CATATAN METODE:
-Parameter MACD 16/26/12 dipakai tetap untuk semua pair, hasil dari riset
-terpisah yang menguji generalisasi 1 parameter tunggal lintas 20 pair
-memakai IS/OOS split dan walk-forward analysis (expanding window, 5 fold).
-Tidak ada filter kelayakan (MIN_CALMAR/MIN_TRADES) -- semua pair dengan
-sinyal terbaru ditampilkan apa adanya.
-"""
 import csv
 import glob
 import hashlib
@@ -41,36 +18,21 @@ except ImportError:
 
 FEE_PCT = 0.15
 
-# Parameter MACD tetap -- hasil riset generalisasi lintas 20 pair (IS/OOS +
-# walk-forward expanding window, 5 fold). Setup ini menang di semua metrik
-# walk-forward genuine dibanding kandidat lain (termasuk default klasik 12/26/9):
-# 90% pair dengan return WF rata-rata positif, median Sharpe per fold 0.368,
-# median Calmar per fold 0.126, 65% pair signifikan pada uji bootstrap (p<0.05).
-# TIDAK di-grid-search ulang per pair -- sengaja satu parameter untuk semua,
-# supaya bot live punya satu codepath sederhana dan tidak overfit per aset.
 MACD_FAST = 16
 MACD_SLOW = 26
 MACD_SIGNAL = 12
 
-# Hanya sinyal yang terjadi dalam jendela ini (jam) yang ditampilkan.
-# 0 = hanya sinyal JAM INI; sinyal 1 jam lalu ke atas dianggap kadaluarsa.
 SIGNAL_FRESHNESS_HOURS = 0
 
 
 def _freshness_label():
-    """Teks deskriptif untuk jendela freshness saat ini, dipakai di semua
-    tempat supaya kalimatnya selalu benar secara bahasa, baik untuk kasus
-    0 jam ('jam ini') maupun N jam ('N jam terakhir')."""
     if SIGNAL_FRESHNESS_HOURS <= 0:
         return "jam ini"
     return f"{SIGNAL_FRESHNESS_HOURS} jam terakhir"
 
-# Direktori cache -- menyimpan hasil backtest per file CSV agar tidak
-# dihitung ulang jika file sumber belum berubah.
 CACHE_DIR = ".backtest_cache"
-CACHE_VERSION = 5  # dinaikkan: threshold freshness diperketat ke 0 jam (hanya "jam ini")
+CACHE_VERSION = 5
 
-# Label timeframe untuk ditampilkan di ringkasan (dari kode interval Binance/umum)
 TIMEFRAME_LABELS = {
     "1m": "1 Minute", "3m": "3 Minute", "5m": "5 Minute", "15m": "15 Minute", "30m": "30 Minute",
     "1h": "1 Hour", "2h": "2 Hour", "4h": "4 Hour", "6h": "6 Hour", "8h": "8 Hour", "12h": "12 Hour",
@@ -81,12 +43,6 @@ TIMEFRAME_LABELS = {
 
 
 def parse_filename(path):
-    """
-    Coba tebak nama pair & timeframe dari nama file, mengikuti pola umum:
-    <pair>_<timeframe>.csv
-    Contoh: btcusdt_1h.csv -> ('BTCUSDT', '1 Hour')
-    Jika tidak bisa ditebak, kembalikan nama file apa adanya sebagai pair, timeframe '-'.
-    """
     base = os.path.basename(path)
     name = re.sub(r'\.csv$', '', base, flags=re.IGNORECASE)
     parts = name.split('_')
@@ -107,7 +63,6 @@ def parse_filename(path):
 
 
 def find_csv_files():
-    """Cari semua file .csv di direktori kerja saat ini (tidak rekursif ke subfolder)."""
     return sorted(glob.glob("*.csv"))
 
 
@@ -133,7 +88,6 @@ def ema_series(closes, span):
 
 
 def macd_series(closes, fast, slow, signal):
-    """Hitung garis MACD (EMA cepat - EMA lambat) dan garis sinyal (EMA dari MACD)."""
     ema_fast = ema_series(closes, fast)
     ema_slow = ema_series(closes, slow)
     macd_line = [f - s for f, s in zip(ema_fast, ema_slow)]
@@ -142,12 +96,6 @@ def macd_series(closes, fast, slow, signal):
 
 
 def backtest_macd(closes, fast, slow, signal, open_times=None):
-    """
-    Strategi tetap LONG-ONLY (tidak benar-benar membuka posisi short).
-    Label 'LONG'/'SHORT' di sini merepresentasikan ARAH sinyal MACD crossover
-    untuk konteks futures: 'LONG' = crossover naik (entry/holding long),
-    'SHORT' = crossover turun (exit dari long, menunggu sinyal LONG berikutnya).
-    """
     n = len(closes)
     macd_line, signal_line = macd_series(closes, fast, slow, signal)
     above = [macd_line[i] > signal_line[i] for i in range(n)]
@@ -156,8 +104,8 @@ def backtest_macd(closes, fast, slow, signal, open_times=None):
     position = None
     entry_price = None
 
-    last_signal_idx = None   # index candle saat crossover TERAKHIR terjadi (entry long atau exit)
-    last_signal_type = None  # "LONG" atau "SHORT" (label arah/status untuk konteks futures)
+    last_signal_idx = None
+    last_signal_type = None
 
     for i in range(slow, n):
         if position is None and (not above[i-1]) and above[i]:
@@ -216,7 +164,6 @@ def backtest_macd(closes, fast, slow, signal, open_times=None):
 
 
 def _hours_label(hours):
-    """Format angka jam: 0 -> 'Jam ini', selain itu '<N> jam lalu'."""
     rounded = round(hours)
     if rounded <= 0:
         return "Jam ini"
@@ -224,14 +171,12 @@ def _hours_label(hours):
 
 
 def _fmt_last_signal(r):
-    """Format ringkas plain-text: 'Jam ini (LONG)' atau '<N> jam lalu (LONG)'."""
     if r.get('hours_since_last_signal') is None or r.get('last_signal_type') is None:
         return "-"
     return f"{_hours_label(r['hours_since_last_signal'])} ({r['last_signal_type']})"
 
 
 def _fmt_last_signal_rich(r):
-    """Format dengan warna rich: hijau untuk LONG (holding), merah untuk SHORT (menunggu entry)."""
     if r.get('hours_since_last_signal') is None or r.get('last_signal_type') is None:
         return "-"
     sig_type = r['last_signal_type']
@@ -241,12 +186,6 @@ def _fmt_last_signal_rich(r):
 
 
 def is_signal_fresh(result):
-    """True jika result punya sinyal dan sinyal itu, setelah dibulatkan
-    dengan cara yang sama seperti label tampilan (_hours_label), termasuk
-    dalam SIGNAL_FRESHNESS_HOURS jam (default: hanya 'Jam ini', yaitu
-    round(hours) <= 0). Memakai round() -- bukan raw float -- supaya pair
-    yang labelnya tertulis 'Jam ini' tidak pernah tersaring keluar oleh
-    filter ini, dan sebaliknya."""
     if result is None:
         return False
     hours = result.get('hours_since_last_signal')
@@ -256,11 +195,6 @@ def is_signal_fresh(result):
 
 
 def _file_fingerprint(path):
-    """
-    Hitung fingerprint file CSV berdasarkan ukuran + hash konten (blake2b),
-    dikombinasikan dengan parameter & versi cache supaya cache otomatis basi
-    kalau file berubah ATAU parameter/logic berubah.
-    """
     stat = os.stat(path)
     hasher = hashlib.blake2b(digest_size=16)
     with open(path, "rb") as f:
@@ -284,7 +218,6 @@ def _cache_path_for(path):
 
 
 def _load_cache(path, fingerprint):
-    """Coba muat hasil dari cache. Return dict hasil atau None jika cache tidak ada/tidak valid."""
     cache_file = _cache_path_for(path)
     if not os.path.exists(cache_file):
         return None
@@ -301,7 +234,6 @@ def _load_cache(path, fingerprint):
 
 
 def _save_cache(path, fingerprint, bh_return, result, total_candle):
-    """Simpan hasil backtest MACD (parameter tunggal) ke cache sebagai JSON."""
     os.makedirs(CACHE_DIR, exist_ok=True)
     cache_file = _cache_path_for(path)
     payload = {
@@ -317,12 +249,6 @@ def _save_cache(path, fingerprint, bh_return, result, total_candle):
 
 
 def run_one_file(path, use_cache=True):
-    """
-    Jalankan backtest MACD (parameter tetap 16/26/12) untuk satu file CSV.
-    Return (path, result_or_None, bh_return).
-    Tidak ada filter kelayakan -- result dihitung apa adanya; penyaringan
-    "hanya sinyal segar" dilakukan di pemanggil (main), bukan di sini.
-    """
     fingerprint = _file_fingerprint(path) if use_cache else None
     cached = _load_cache(path, fingerprint) if use_cache else None
 
@@ -347,14 +273,6 @@ def run_one_file(path, use_cache=True):
 
 
 def split_and_sort_by_signal(summary):
-    """
-    Pisahkan hasil jadi dua grup berdasarkan jenis sinyal terakhir:
-    - bullish_group: sinyal terakhir LONG (posisi masih terbuka)
-    - bearish_group: sinyal terakhir SHORT (menunggu sinyal LONG berikutnya)
-    Item TANPA sinyal segar (<= SIGNAL_FRESHNESS_HOURS jam) sudah difilter
-    keluar sebelum fungsi ini dipanggil.
-    Setiap grup diurutkan dari sinyal PALING BARU (jam lebih kecil) ke yang lebih lama.
-    """
     bullish, bearish = [], []
     for item in summary:
         path, best, bh = item
